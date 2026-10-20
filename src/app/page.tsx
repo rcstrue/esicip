@@ -182,6 +182,24 @@ export default function Home() {
     }
   }, [])
 
+  // ─── Step 3: download GitHub repo ───────────────────────────────────────────
+  const handleDownloadRepo = useCallback(async () => {
+    try {
+      const res = await fetch("/api/esic/repo")
+      if (!res.ok) {
+        throw new Error(`Repo download failed (HTTP ${res.status})`)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      triggerDownloadUrl(url, "esicip-repo.zip")
+      toast.success("GitHub repo downloaded", {
+        description: "esicip-repo.zip · unzip, then git init + git push to your repo",
+      })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Repo download failed")
+    }
+  }, [])
+
   // ─── Stepper state ──────────────────────────────────────────────────────────
   const canValidate = !!validated
   const canExport = !!validated && validated.summary.ready > 0
@@ -200,6 +218,7 @@ export default function Home() {
           <UploadStep
             onSubmit={handleValidate}
             onDownloadTemplate={handleDownloadTemplate}
+            onDownloadRepo={handleDownloadRepo}
             validating={validating}
             error={uploadError}
             onRetry={handleRetry}

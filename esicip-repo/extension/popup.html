@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>ESIC IP Auto-Fill</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      width: 380px;
+      font-size: 13px;
+      color: #1a1a1a;
+      background: #fafafa;
+    }
+    .header {
+      background: linear-gradient(135deg, #b91c1c, #dc2626);
+      color: white;
+      padding: 14px 16px;
+    }
+    .header h1 { font-size: 15px; font-weight: 600; }
+    .header p { font-size: 11px; opacity: 0.9; margin-top: 2px; }
+    .section { padding: 12px 16px; border-bottom: 1px solid #e5e5e5; }
+    .section h2 { font-size: 11px; text-transform: uppercase; color: #666; margin-bottom: 8px; letter-spacing: 0.5px; }
+    .row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+    .row .label { color: #666; }
+    .row .value { font-weight: 500; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .badge-ready { background: #d1fae5; color: #065f46; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-error { background: #fee2e2; color: #991b1b; }
+    .badge-info { background: #dbeafe; color: #1e40af; }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 6px;
+      transition: background 0.15s;
+    }
+    .btn-primary { background: #dc2626; color: white; }
+    .btn-primary:hover { background: #b91c1c; }
+    .btn-secondary { background: #e5e5e5; color: #333; }
+    .btn-secondary:hover { background: #d4d4d4; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-row { display: flex; gap: 6px; }
+    .btn-row .btn { margin-top: 0; }
+    .current-ip {
+      background: white;
+      border: 1px solid #e5e5e5;
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 6px;
+    }
+    .current-ip .name { font-weight: 600; font-size: 14px; }
+    .current-ip .meta { font-size: 11px; color: #666; margin-top: 2px; }
+    .progress { font-size: 11px; color: #666; margin-top: 6px; }
+    .empty { text-align: center; padding: 20px; color: #999; }
+    .status-msg {
+      padding: 8px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    .status-info { background: #eff6ff; color: #1e40af; }
+    .status-success { background: #d1fae5; color: #065f46; }
+    .status-error { background: #fee2e2; color: #991b1b; }
+    .status-warning { background: #fef3c7; color: #92400e; }
+    .page-indicator {
+      display: flex;
+      gap: 4px;
+      margin-top: 8px;
+    }
+    .page-dot {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: #e5e5e5;
+    }
+    .page-dot.active { background: #dc2626; }
+    .page-dot.done { background: #10b981; }
+    .results-list {
+      max-height: 150px;
+      overflow-y: auto;
+      margin-top: 6px;
+    }
+    .result-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 12px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .result-item .ip { font-family: monospace; font-weight: 500; color: #065f46; }
+    .result-item .err { color: #991b1b; }
+    .file-input { display: none; }
+    .hint { font-size: 11px; color: #999; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>ESIC IP Auto-Fill</h1>
+    <p>Auto-fills forms · You click Submit</p>
+  </div>
+
+  <!-- No queue loaded -->
+  <div id="no-queue" class="section">
+    <h2>Load Queue</h2>
+    <p class="hint">Load the <strong>queue.json</strong> file you exported from the web tool.</p>
+    <input type="file" id="file-input" class="file-input" accept=".json" />
+    <button class="btn btn-primary" id="load-btn">Choose queue.json</button>
+  </div>
+
+  <!-- Queue loaded - main view -->
+  <div id="main-view" style="display:none;">
+    <div class="section">
+      <h2>Current IP</h2>
+      <div class="current-ip" id="current-ip-box">
+        <div class="name" id="ip-name">—</div>
+        <div class="meta" id="ip-meta">—</div>
+      </div>
+      <div class="progress" id="progress">—</div>
+      <div class="page-indicator" id="page-indicator">
+        <div class="page-dot" id="dot-entry" title="Entry"></div>
+        <div class="page-dot" id="dot-main" title="Main form"></div>
+        <div class="page-dot" id="dot-bank" title="Bank"></div>
+        <div class="page-dot" id="dot-nominee" title="Nominee"></div>
+        <div class="page-dot" id="dot-success" title="Success"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Page Status</h2>
+      <div id="page-status">Detecting page…</div>
+      <div id="status-msg" class="status-msg status-info" style="display:none;"></div>
+    </div>
+
+    <div class="section">
+      <h2>Actions</h2>
+      <button class="btn btn-primary" id="fill-btn">Fill this page now</button>
+      <div class="btn-row" style="margin-top:6px;">
+        <button class="btn btn-secondary" id="prev-btn">← Prev IP</button>
+        <button class="btn btn-secondary" id="next-btn">Next IP →</button>
+      </div>
+      <button class="btn btn-secondary" id="diag-btn" style="margin-top:6px;">🔍 Diagnose page (for debugging)</button>
+      <button class="btn btn-secondary" id="reset-btn" style="margin-top:6px;">Reset all</button>
+    </div>
+
+    <div class="section">
+      <h2>Results (<span id="results-count">0</span>)</h2>
+      <div class="results-list" id="results-list"></div>
+      <button class="btn btn-secondary" id="export-btn" style="margin-top:6px;">Export results.csv</button>
+    </div>
+
+    <div class="section">
+      <h2>Update</h2>
+      <button class="btn btn-secondary" id="check-update-btn">🔍 Check for updates</button>
+      <div id="update-status" class="status-msg status-info" style="display:none;margin-top:6px;"></div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

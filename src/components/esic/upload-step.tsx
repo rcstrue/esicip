@@ -5,6 +5,7 @@ import {
   AlertCircle,
   FileDown,
   FileUp,
+  Github,
   Loader2,
   RotateCcw,
   Upload,
@@ -22,6 +23,8 @@ interface UploadStepProps {
   onSubmit: (csvText: string) => void | Promise<void>
   /** Called when the user clicks "Download CSV template". */
   onDownloadTemplate: () => void | Promise<void>
+  /** Called when the user clicks "Download GitHub repo". */
+  onDownloadRepo?: () => void | Promise<void>
   /** True while the validate API call is in flight. */
   validating: boolean
   /** Error message returned by the validate API (4xx). */
@@ -33,6 +36,7 @@ interface UploadStepProps {
 export function UploadStep({
   onSubmit,
   onDownloadTemplate,
+  onDownloadRepo,
   validating,
   error,
   onRetry,
@@ -231,15 +235,28 @@ export function UploadStep({
               Download a starter template with two example rows you can edit.
             </p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void onDownloadTemplate()}
-            className="h-10 min-h-11"
-          >
-            <FileDown className="size-4" aria-hidden="true" />
-            Download CSV template
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void onDownloadTemplate()}
+              className="h-10 min-h-11"
+            >
+              <FileDown className="size-4" aria-hidden="true" />
+              Download CSV template
+            </Button>
+            {onDownloadRepo && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void onDownloadRepo()}
+                className="h-10 min-h-11"
+              >
+                <Github className="size-4" aria-hidden="true" />
+                Download GitHub repo
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
