@@ -22,6 +22,7 @@ export default function Home() {
   const [establishmentCode, setEstablishmentCode] = useState(DEFAULT_ESTABLISHMENT_CODE)
   const [exportingQueue, setExportingQueue] = useState(false)
   const [exportingCsv, setExportingCsv] = useState(false)
+  const [downloadingRunner, setDownloadingRunner] = useState(false)
 
   // ─── Step 1: validate CSV ───────────────────────────────────────────────────
   const handleValidate = useCallback(async (csvText: string) => {
@@ -138,6 +139,27 @@ export default function Home() {
     }
   }, [validated])
 
+  // ─── Step 3: download runner script ─────────────────────────────────────────
+  const handleDownloadRunner = useCallback(async () => {
+    setDownloadingRunner(true)
+    try {
+      const res = await fetch("/api/esic/runner?type=script")
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(err.error || `Runner download failed (HTTP ${res.status})`)
+      }
+      const text = await res.text()
+      triggerDownload(text, "runner.mjs", "text/javascript;charset=utf-8")
+      toast.success("Runner script downloaded", {
+        description: "runner.mjs · save in your esic-runner folder, then run node runner.mjs",
+      })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Runner download failed")
+    } finally {
+      setDownloadingRunner(false)
+    }
+  }, [])
+
   // ─── Stepper state ──────────────────────────────────────────────────────────
   const canValidate = !!validated
   const canExport = !!validated && validated.summary.ready > 0
@@ -190,6 +212,8 @@ export default function Home() {
                 onExportCsv={handleExportCsv}
                 exportingQueue={exportingQueue}
                 exportingCsv={exportingCsv}
+                onDownloadRunner={handleDownloadRunner}
+                downloadingRunner={downloadingRunner}
               />
             </section>
           )}

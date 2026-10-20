@@ -129,3 +129,28 @@ Stage Summary:
 - The validator catches real issues in the user's original sample CSV: missing PresentState/PresentDistrict/AccountType columns, missing BankDocPath (warning), and correctly translates all labels to portal codes.
 - The queue.json export contains everything the local Playwright runner needs: normalized field values with codes already translated, field-map documentation embedded in the lib, and per-field PostBack/interlock notes.
 - The runner script itself (Playwright, runs on the user's machine) is the next step — not built here because it must execute where the ESIC login session + per-employee bank documents live.
+
+---
+Task ID: 6, 7, 8, 9, 10
+Agent: main (Z.ai Code orchestrator)
+Task: Build the fully-automated Playwright runner script + integrate it into the web tool's Export step with a download button and setup-instructions modal.
+
+Work Log:
+- Task 6 (runner script): Wrote /home/z/my-project/runner/runner.mjs (721 lines, 29KB). Self-contained Node.js ESM script using Playwright. Drives all 4 ESIC pages in the correct PostBack order: entry (click No + Continue), main form (fill 20+ fields respecting Father/Husband↔Gender↔Marital interlock, cascading dispensary dropdowns, readonly date pickers via JS value-setter + event dispatch, declaration checkbox, auto-click Submit), bank (IFSC search PostBack, account no, MICR, account type, file upload, auto-click Submit), nominee (name, relation, XML hidden fields, auto-click Save). Captures IP Number from success page via 3 fallback strategies. Resume from state.json after crash/Ctrl+C. Per-error screenshots saved to error-screenshots/. Configurable via config.json (delayBetweenIPs, interactiveMode, headless, timeouts). Validated JS syntax with `node --check` — passes.
+- Task 7 (runner docs): Wrote runner/package.json (playwright dep), runner/config.example.json (override defaults), runner/README.md (7.6KB, 8-step setup, troubleshooting, honest limitations).
+- Task 8 (API route): Wrote /home/z/my-project/src/app/api/esic/runner/route.ts. Serves runner.mjs (?type=script) or README.md (?type=readme) as downloads. Initial bug: used __dirname-relative path that resolved to /src/runner/ instead of /runner/. Fixed by using process.cwd() instead. Verified: GET /api/esic/runner?type=script returns 200 with 29818 bytes of text/javascript; ?type=readme returns 200 with 7666 bytes of text/markdown.
+- Task 9 (UI integration): Updated src/components/esic/export-step.tsx to add a new "Automation runner script" card below the two existing export cards. Contains: (a) 6 feature bullets (auto-fill, auto-submit, IP capture, resume, screenshots, results export), (b) "Download runner script" primary button, (c) "Setup instructions" outline button that opens a Dialog with 8 numbered steps — each step has a copy-to-clipboard button for code blocks. (d) Honest limitations amber callout. Updated src/app/page.tsx to wire up the new onDownloadRunner + downloadingRunner props with a handleDownloadRunner callback that fetches /api/esic/runner?type=script and triggers a browser download as runner.mjs.
+- Task 10 (verification):
+  - `bun run lint` passes clean (zero errors, zero warnings).
+  - Dev server compiles the new code in ~250-800ms with no errors.
+  - agent-browser smoke test: opened /, uploaded template CSV via file input → Step 3 appeared with all 4 buttons (queue.json, corrected CSV, runner script, setup instructions). Clicked "Download runner script" → POST log shows `GET /api/esic/runner?type=script 200 in 41ms`. Toast notification appeared. Clicked "Setup instructions" → Dialog opened with all 8 steps rendered correctly.
+  - Mobile responsive re-verified at 390x844: body width = 390 = viewport, no horizontal scroll.
+  - Sticky footer still intact (mt-auto in min-h-screen flex-col wrapper).
+
+Stage Summary:
+- Complete end-to-end ESIC IP bulk registration system delivered:
+  1. Web tool (sandbox, /): validates CSV → translates labels to codes → exports queue.json
+  2. Runner script (user's machine, runner.mjs): consumes queue.json → auto-fills all 4 ESIC pages → auto-clicks Submit → captures IP Numbers → saves results.json + results.csv
+- User involvement reduced to: (a) one-time login + captcha solve, (b) Enter key on error. Zero manual text entry. Zero manual button clicks (runner auto-clicks all Submits).
+- Honest limitations documented in 3 places: runner.mjs header comment, runner/README.md, and the UI amber callout. Key risks: nominee XML format is best-guess, IP Number extraction uses fallback strategies, bank doc must pre-exist, ESIC may change without notice.
+- The runner is a starting point that will likely need 1-2 adjustments after the user's first real test against ESIC. The error-screenshot capture + state.json resume mechanism makes iteration safe.

@@ -1,0 +1,8 @@
+{
+  "_comment": "Copy this file to config.json and adjust. All keys optional.",
+  "delayBetweenIPs": 5000,
+  "interactiveMode": false,
+  "headless": false,
+  "postbackTimeout": 30000,
+  "pageTimeout": 60000
+}
