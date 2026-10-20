@@ -23,7 +23,7 @@
  *   Page 5: (success page — not in provided files — displays generated 10-digit IP Number)
  */
 
-export type PageId = "entry" | "main" | "bank" | "nominee"
+export type PageId = "entry" | "aadhaar" | "main" | "bank" | "nominee"
 
 export interface FieldSpec {
   /** CSV column name (case-sensitive, matches template header). */
@@ -309,6 +309,17 @@ export const FIELD_MAP: FieldSpec[] = [
     portalLabel: "SMS Language",
   },
   {
+    csvColumn: "AadhaarNumber",
+    page: "aadhaar",
+    controlName: "ctl00$HomePageContent$txtAadhaar",
+    controlId: "ctl00_HomePageContent_txtAadhaar",
+    type: "numeric",
+    maxLength: 12,
+    required: true,
+    portalLabel: "Aadhaar Number",
+    runnerNote: "12-digit Aadhaar number with valid Verhoeff checksum. Entered on the Aadhaar page (between entry and main form). Select 'Later' for OTP verification.",
+  },
+  {
     csvColumn: "_internal_declaration",
     page: "main",
     controlName: "ctl00$HomePageContent$dec_chkbox",
@@ -471,6 +482,7 @@ export const FIELD_MAP: FieldSpec[] = [
 /** Convenience: fields grouped by page, in the order the runner should fill them. */
 export const FIELDS_BY_PAGE: Record<PageId, FieldSpec[]> = {
   entry: FIELD_MAP.filter((f) => f.page === "entry"),
+  aadhaar: FIELD_MAP.filter((f) => f.page === "aadhaar"),
   main: FIELD_MAP.filter((f) => f.page === "main"),
   bank: FIELD_MAP.filter((f) => f.page === "bank"),
   nominee: FIELD_MAP.filter((f) => f.page === "nominee"),

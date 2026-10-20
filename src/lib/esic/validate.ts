@@ -388,9 +388,15 @@ export function validateRow(rowIndex: number, raw: Record<string, string>): Norm
   }
   normalized.SMSLanguage = smsLang
 
-  // ─── Aadhaar (optional in current CSV but recommended) ─────────────────
+  // ─── Aadhaar (required — live ESIC portal needs it on the Aadhaar page) ──
   const aadhaar = get("AadhaarNumber")
-  if (aadhaar) {
+  if (!aadhaar) {
+    issues.push({
+      column: "AadhaarNumber",
+      severity: "error",
+      message: "AadhaarNumber is required — the ESIC portal asks for it before the main form",
+    })
+  } else {
     const err = validateAadhaar(aadhaar)
     if (err) issues.push({ column: "AadhaarNumber", severity: "error", message: err })
     normalized.AadhaarNumber = aadhaar
