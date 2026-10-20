@@ -157,8 +157,8 @@ $("diag-btn").addEventListener("click", async () => {
       func: () => {
         const fields = []
         // Collect all inputs
-        document.querySelectorAll("input, select, textarea").forEach((el) => {
-          if (el.type === "hidden" || el.type === "submit" || el.type === "button" || el.type === "image") return
+        document.querySelectorAll("input, select, textarea, button").forEach((el) => {
+          if (el.type === "hidden") return
           const label = (() => {
             // Try to find associated label
             if (el.id) {

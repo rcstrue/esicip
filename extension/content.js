@@ -185,14 +185,17 @@ function fillEntry(data) {
     return { type: "info", message: "✓ Clicked 'No' (new IP). Page may reload. Will continue after reload." }
   }
 
-  // 2. Fill mobile number (new field on entry page)
+  // 2. Fill mobile number (field ID is txtmobilenumber — all lowercase)
   const mobileSelectors = [
+    "#ctl00_HomePageContent_txtmobilenumber",
     "#ctl00_HomePageContent_ctrlTextPresentMobileNo",
     "#ctl00_HomePageContent_txtMobileNo",
     "#ctl00_HomePageContent_ctrlTextMobile",
     "#ctl00_HomePageContent_txtMobile",
-    "input[name*='Mobile'][maxlength='10']",
-    "input[id*='Mobile']:not([disabled])",
+    "input[name*='mobilenumber' i]",
+    "input[id*='mobilenumber' i]",
+    "input[name*='Mobile' i][maxlength='10']",
+    "input[id*='Mobile' i]:not([disabled])",
   ]
   const mobileEl = findField(mobileSelectors)
   if (mobileEl && !mobileEl.value && data.MobileNo) {
@@ -200,34 +203,28 @@ function fillEntry(data) {
     filled.push("Mobile")
   }
 
-  // 3. Click Validate button (if present)
+  // 3. Click Validate button (if present — validates the mobile number)
   const validateBtn = findField([
     "#ctl00_HomePageContent_btnValidate",
     "input[value='Validate']",
-    "input[onclick*='Validate']",
-    "a:has-text('Validate')",
-    "button:has-text('Validate')",
+    "input[onclick*='Validate' i]",
+    "input[type='submit'][value='Validate']",
+    "input[type='button'][value='Validate']",
   ])
   if (validateBtn && filled.includes("Mobile")) {
-    clickElement([
-      "#ctl00_HomePageContent_btnValidate",
-      "input[value='Validate']",
-      "input[onclick*='Validate']",
-    ])
-    return { type: "info", message: "✓ Filled mobile + clicked Validate. Page will reload." }
+    return { type: "info", message: "✓ Filled mobile number. Click 'Validate' to verify it, then click Continue." }
   }
 
   // 4. Click Continue
   const continueBtn = findField([
     "#ctl00_HomePageContent_btnContinue",
     "input[value='Continue']",
-    "input[onclick*='Continue']",
-    "a:has-text('Continue')",
+    "input[onclick*='Continue' i]",
   ])
   if (continueBtn) {
     return { type: "info", message: "✓ Entry page ready. Click 'Continue' to proceed to Aadhaar page." }
   }
-  return { type: "info", message: "Entry page: No selected. Fill mobile if needed, then click Continue." }
+  return { type: "info", message: "Entry page: No selected + mobile filled. Click Validate (if shown), then Continue." }
 }
 
 // ─── PAGE 2: AADHAAR ───────────────────────────────────────────────
