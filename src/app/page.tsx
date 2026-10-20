@@ -23,6 +23,7 @@ export default function Home() {
   const [exportingQueue, setExportingQueue] = useState(false)
   const [exportingCsv, setExportingCsv] = useState(false)
   const [downloadingRunner, setDownloadingRunner] = useState(false)
+  const [downloadingExtension, setDownloadingExtension] = useState(false)
 
   // ─── Step 1: validate CSV ───────────────────────────────────────────────────
   const handleValidate = useCallback(async (csvText: string) => {
@@ -139,6 +140,27 @@ export default function Home() {
     }
   }, [validated])
 
+  // ─── Step 3: download Chrome extension ──────────────────────────────────────
+  const handleDownloadExtension = useCallback(async () => {
+    setDownloadingExtension(true)
+    try {
+      const res = await fetch("/api/esic/extension")
+      if (!res.ok) {
+        throw new Error(`Extension download failed (HTTP ${res.status})`)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      triggerDownloadUrl(url, "esic-extension.zip")
+      toast.success("Chrome extension downloaded", {
+        description: "esic-extension.zip · unzip, then Load unpacked in chrome://extensions/",
+      })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Extension download failed")
+    } finally {
+      setDownloadingExtension(false)
+    }
+  }, [])
+
   // ─── Step 3: download runner script ─────────────────────────────────────────
   const handleDownloadRunner = useCallback(async () => {
     setDownloadingRunner(true)
@@ -214,6 +236,8 @@ export default function Home() {
                 exportingCsv={exportingCsv}
                 onDownloadRunner={handleDownloadRunner}
                 downloadingRunner={downloadingRunner}
+                onDownloadExtension={handleDownloadExtension}
+                downloadingExtension={downloadingExtension}
               />
             </section>
           )}
