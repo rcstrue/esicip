@@ -143,6 +143,89 @@ $("fill-btn").addEventListener("click", async () => {
   await sendMessageToTab({ action: "fillPage" })
 })
 
+// ─── Diagnose page (for debugging — dumps all fields) ──────────────
+$("diag-btn").addEventListener("click", async () => {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    if (!tab) {
+      alert("No active tab found.")
+      return
+    }
+    // Inject a diagnostic script into the page
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        const fields = []
+        // Collect all inputs
+        document.querySelectorAll("input, select, textarea").forEach((el) => {
+          if (el.type === "hidden" || el.type === "submit" || el.type === "button" || el.type === "image") return
+          const label = (() => {
+            // Try to find associated label
+            if (el.id) {
+              const lbl = document.querySelector(`label[for="${el.id}"]`)
+              if (lbl) return lbl.textContent.trim()
+            }
+            // Walk up to find nearby text
+            let parent = el.closest("td, div, li")
+            if (parent) {
+              const prev = parent.previousElementSibling
+              if (prev && prev.textContent.trim()) return prev.textContent.trim().slice(0, 50)
+            }
+            return el.placeholder || el.name || ""
+          })()
+          fields.push({
+            tag: el.tagName,
+            type: el.type || "",
+            id: el.id || "",
+            name: el.name || "",
+            label: label,
+            value: el.value || "",
+            disabled: el.disabled,
+            maxlength: el.maxLength > 0 ? el.maxLength : "",
+            options: el.tagName === "SELECT" ? Array.from(el.options).slice(0, 5).map(o => `${o.value}=${o.text}`) : [],
+          })
+        })
+        return {
+          url: location.href,
+          title: document.title,
+          fieldCount: fields.length,
+          fields: fields,
+        }
+      },
+    })
+    if (results && results[0]) {
+      const diag = results[0].result
+      // Format as readable text
+      let text = `=== ESIC PAGE DIAGNOSTIC ===\n`
+      text += `URL: ${diag.url}\n`
+      text += `Title: ${diag.title}\n`
+      text += `Field count: ${diag.fieldCount}\n`
+      text += `Time: ${new Date().toISOString()}\n\n`
+      text += `=== FIELDS ===\n`
+      for (const f of diag.fields) {
+        text += `\n[${f.tag}${f.type ? " type=" + f.type : ""}]\n`
+        text += `  id: ${f.id || "(none)"}\n`
+        text += `  name: ${f.name || "(none)"}\n`
+        text += `  label: ${f.label || "(none)"}\n`
+        text += `  value: "${f.value}"\n`
+        text += `  disabled: ${f.disabled}\n`
+        if (f.maxlength) text += `  maxlength: ${f.maxlength}\n`
+        if (f.options && f.options.length > 0) {
+          text += `  options: ${f.options.join(" | ")}\n`
+        }
+      }
+      text += `\n=== END DIAGNOSTIC ===\n`
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(text)
+      alert(`✓ Page diagnostic copied to clipboard!\n\n${diag.fieldCount} fields found.\n\nPlease paste it (Ctrl+V) into our chat so I can fix the fill logic.`)
+      console.log("[ESIC Auto-Fill] Diagnostic:", text)
+    }
+  } catch (err) {
+    alert("Diagnose failed: " + err.message + "\n\nMake sure you're on an ESIC page (portal.esic.gov.in).")
+  }
+})
+
 // ─── Previous / Next IP ────────────────────────────────────────────
 $("prev-btn").addEventListener("click", async () => {
   if (state.currentIndex > 0) {
