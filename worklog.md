@@ -154,3 +154,30 @@ Stage Summary:
 - User involvement reduced to: (a) one-time login + captcha solve, (b) Enter key on error. Zero manual text entry. Zero manual button clicks (runner auto-clicks all Submits).
 - Honest limitations documented in 3 places: runner.mjs header comment, runner/README.md, and the UI amber callout. Key risks: nominee XML format is best-guess, IP Number extraction uses fallback strategies, bank doc must pre-exist, ESIC may change without notice.
 - The runner is a starting point that will likely need 1-2 adjustments after the user's first real test against ESIC. The error-screenshot capture + state.json resume mechanism makes iteration safe.
+
+---
+Task ID: 11
+Agent: main (Z.ai Code orchestrator)
+Task: Fix runner.mjs — wrong ESIC domain + new-tab navigation issue discovered during user's first real run.
+
+Work Log:
+- User ran `node runner.mjs` on their Windows machine. Login succeeded but runner was stuck at "Press Enter" prompt because:
+  1. Runner was hardcoded to navigate to `www.esic.in/...EmployeePortal/1RegisteredEmployees.aspx` — but live ESIC uses `portal.esic.gov.in/...Employee/RegisteredEmployees.aspx?userPk=...` (different domain, different path, session-specific userPk param)
+  2. ESIC dashboard opens the "Add Employee" page in a NEW TAB, but runner was bound to the original dashboard tab
+- Fixed in runner/runner.mjs:
+  - Updated loginUrl to `https://portal.esic.gov.in/InsuranceGlobalWebV4/ESICInsurancePortal/PortalHome.aspx`
+  - Removed hardcoded addEmployeeUrl — now empty by default, captured at runtime
+  - Added new login flow: after user logs in, prompt them to click "Employee → Add Employee" manually (which opens in a new tab), then press Enter
+  - Added tab-detection logic: scans all open tabs for the registration entry page by URL pattern (RegisteredEmployees/EmployeeCounterFoil/AddEmployee), with fallback to scanning each tab for the entry form signature element (#ctl00_HomePageContent_rbtnlistIsregistered_1), with last-resort fallback to the most recently opened tab
+  - Added `isFirstIP` parameter to registerOneIP(): on first IP, skip navigation (user already did it); on subsequent IPs, navigate back to the captured entry URL
+  - Updated retry logic to always pass isFirstIP=false (fresh navigation on retry)
+  - Added bringToFront() so the runner's tab comes to the foreground
+  - Improved entry-page-not-found error: now waits 3s + retries visibility check + takes screenshot before throwing
+  - Enhanced isLoggedIn detection: checks "Logout" OR "Log out" text OR #ctl00_lbluserName element OR any <a> with Logout in href
+- Verified: `node --check runner.mjs` passes. API endpoint serves updated 34590-byte file (up from 29818). User can re-download via the "Download runner script" button.
+
+Stage Summary:
+- Runner updated to handle real ESIC portal behavior (portal.esic.gov.in domain, new-tab navigation, session-specific URLs).
+- User needs to: (1) Ctrl+C current stuck runner, (2) re-download runner.mjs, (3) replace old file, (4) re-run.
+- Persistent browser-session/ folder means user likely won't need to log in again — just navigate to Add Employee and press Enter.
+- This is the first of likely 2-3 adjustments after the user's first real test against ESIC. Next likely issues: field IDs on live site, nominee XML format, IP Number extraction.

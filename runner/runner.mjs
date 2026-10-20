@@ -112,9 +112,8 @@ const CONFIG = {
   interactiveMode: false, // true = pause before each Submit
   headless: false,
 
-  loginUrl: "https://www.esic.in/InsuranceGlobalWebV4/InsuranceHome.aspx",
-  addEmployeeUrl:
-    "https://www.esic.in/InsuranceGlobalWebV4/EmployeePortal/1RegisteredEmployees.aspx",
+  loginUrl: "https://portal.esic.gov.in/InsuranceGlobalWebV4/ESICInsurancePortal/PortalHome.aspx",
+  addEmployeeUrl: "", // captured at runtime after user navigates manually
 }
 
 const userConfigFile = join(__dirname, "config.json")
@@ -293,16 +292,31 @@ async function setNomineeXml(page, data) {
 }
 
 // ─── The 4-page registration flow ──────────────────────────────────────────
-async function registerOneIP(page, data, rowIndex) {
+async function registerOneIP(page, data, rowIndex, isFirstIP = false) {
   log(`  → Registering: ${data.EmpName}`)
 
   // ═══ PAGE 1: ENTRY ════════════════════════════════════════════════════
   log("  → Page 1/4: Entry")
-  await page.goto(CONFIG.addEmployeeUrl, { timeout: CONFIG.pageTimeout })
-  await waitForPostBack(page)
+
+  if (!isFirstIP) {
+    // For subsequent IPs, navigate back to the captured entry URL
+    if (!CONFIG.addEmployeeUrl) {
+      throw new Error("Entry URL not captured — restart the runner")
+    }
+    await page.goto(CONFIG.addEmployeeUrl, { timeout: CONFIG.pageTimeout })
+    await waitForPostBack(page)
+  }
+  // For the first IP, the user already navigated manually — we're already here
 
   if (!(await page.isVisible("#ctl00_HomePageContent_rbtnlistIsregistered_1"))) {
-    throw new Error("Entry page did not load — check you are still logged in")
+    // Wait a bit — the page might still be loading
+    await sleep(3000)
+    if (!(await page.isVisible("#ctl00_HomePageContent_rbtnlistIsregistered_1"))) {
+      await takeScreenshot(page, rowIndex, "entry-page-not-found")
+      throw new Error(
+        "Entry page did not load (the 'ESI Number allotted?' radio not found). Check you are on the Add Employee page and still logged in.",
+      )
+    }
   }
 
   // Click "No" for "Was the employee ever allotted a ESI Number?"
@@ -600,16 +614,19 @@ async function main() {
     viewport: { width: 1280, height: 900 },
     acceptDownloads: true,
   })
-  const page = context.pages()[0] || (await context.newPage())
+  let page = context.pages()[0] || (await context.newPage())
 
-  // 4. Navigate to ESIC login
-  log("Navigating to ESIC login...")
+  // 4. Navigate to ESIC portal
+  log("Navigating to ESIC portal...")
   await page.goto(CONFIG.loginUrl, { timeout: CONFIG.pageTimeout })
 
+  // Check if already logged in (session restored from previous run)
   const isLoggedIn = await page.evaluate(() => {
     return (
       document.body.innerText.includes("Logout") ||
-      !!document.querySelector("#ctl00_lbluserName")
+      document.body.innerText.includes("Log out") ||
+      !!document.querySelector("#ctl00_lbluserName") ||
+      !!document.querySelector('a[href*="Logout"]')
     )
   })
 
@@ -618,15 +635,111 @@ async function main() {
     log("╔════════════════════════════════════════════════════════════╗")
     log("║  PLEASE LOG IN TO ESIC IN THE BROWSER WINDOW            ║")
     log("║  Enter employer code, user ID, password, and captcha.   ║")
-    log("║  Once you see the employer dashboard, come back here.   ║")
+    log("║  Once you see the employer DASHBOARD, come back here.   ║")
     log("╚════════════════════════════════════════════════════════════╝")
     log("")
-    await waitForEnter("Press Enter here once you are logged in...")
+    await waitForEnter("Press Enter here once you see the dashboard...")
   } else {
     log("✓ Already logged in (session restored)")
   }
 
-  // 5. Process queue
+  // 5. Ask user to navigate to Add Employee page manually
+  log("")
+  log("╔════════════════════════════════════════════════════════════╗")
+  log("║  IN THE BROWSER, DO THIS:                                ║")
+  log("║                                                          ║")
+  log("║  1. Click the 'Employee' menu (left sidebar)             ║")
+  log("║  2. Click 'Add Employee' or 'Register New IP'            ║")
+  log("║     → This opens the registration page                   ║")
+  log("║     → It may open in a NEW TAB — that's OK               ║")
+  log("║                                                          ║")
+  log("║  When you see the page asking:                           ║")
+  log("║  'Was the Employee ever allotted a ESI Number?'          ║")
+  log("║  with Yes/No radio buttons,                              ║")
+  log("║  come back here and press Enter.                         ║")
+  log("╚════════════════════════════════════════════════════════════╝")
+  log("")
+  await waitForEnter("Press Enter here once the Add Employee page is open...")
+
+  // 6. Find the tab with the registration entry page
+  //    (it may be in a new tab that opened when user clicked "Add Employee")
+  const allPages = context.pages()
+  let entryPage = null
+  for (const p of allPages) {
+    try {
+      const url = p.url()
+      if (
+        url.includes("RegisteredEmployees") ||
+        url.includes("EmployeeCounterFoil") ||
+        url.includes("AddEmployee") ||
+        url.includes("Employee/Regist")
+      ) {
+        entryPage = p
+        break
+      }
+    } catch {
+      // tab may have closed
+    }
+  }
+
+  if (!entryPage) {
+    // Fallback: check ALL tabs for the entry page signature element
+    log("  Auto-detect by URL failed, checking each tab for the entry form...")
+    for (const p of allPages) {
+      try {
+        const hasRadio = await p.isVisible("#ctl00_HomePageContent_rbtnlistIsregistered_1", {
+          timeout: 2000,
+        })
+        if (hasRadio) {
+          entryPage = p
+          log(`  ✓ Found entry form in tab ${allPages.indexOf(p) + 1}`)
+          break
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  if (!entryPage) {
+    // Last resort: use the most recently opened tab
+    entryPage = allPages[allPages.length - 1]
+    log(`⚠ Could not auto-detect the Add Employee tab.`)
+    log(`  Using the last tab: ${entryPage.url()}`)
+    log(`  If this is wrong, press Ctrl+C and restart.`)
+  } else {
+    log(`✓ Found registration page in tab ${allPages.indexOf(entryPage) + 1}`)
+  }
+
+  // Use this tab for all runner operations from now on
+  page = entryPage
+
+  // Bring the tab to front so the user can see what's happening
+  await page.bringToFront()
+
+  // 7. Capture the entry URL for subsequent IPs
+  CONFIG.addEmployeeUrl = page.url()
+  log(`✓ Captured entry URL for subsequent IPs:`)
+  log(`  ${CONFIG.addEmployeeUrl}`)
+
+  // 8. Verify we're actually on the entry page
+  const onEntryPage = await page.isVisible("#ctl00_HomePageContent_rbtnlistIsregistered_1")
+  if (!onEntryPage) {
+    log("")
+    log(`⚠ The current tab doesn't look like the Add Employee entry page.`)
+    log(`  Expected to see 'Was the Employee ever allotted a ESI Number?'`)
+    log(`  Current URL: ${page.url()}`)
+    log("")
+    log(`  Please navigate to the Add Employee page in the browser,`)
+    log(`  then press Enter here.`)
+    await waitForEnter("  Press Enter when ready...")
+
+    // Re-capture URL after manual navigation
+    CONFIG.addEmployeeUrl = page.url()
+    log(`  ✓ Re-captured URL: ${CONFIG.addEmployeeUrl}`)
+  }
+
+  // 9. Process queue
   log("")
   log(`Starting queue: ${queue.count - startIndex} items remaining`)
   log("")
@@ -651,7 +764,7 @@ async function main() {
     }
 
     try {
-      const ipNumber = await registerOneIP(page, data, item.rowIndex)
+      const ipNumber = await registerOneIP(page, data, item.rowIndex, i === startIndex)
       result.ipNumber = ipNumber
       result.status = "success"
       log(`  ✅ SUCCESS — IP Number: ${ipNumber}`)
@@ -674,7 +787,8 @@ async function main() {
         log("  ⏭ Skipped")
       } else {
         try {
-          const ipNumber = await registerOneIP(page, data, item.rowIndex)
+          // On retry, always navigate fresh (not first IP)
+          const ipNumber = await registerOneIP(page, data, item.rowIndex, false)
           result.ipNumber = ipNumber
           result.status = "success"
           result.message = "succeeded on retry"
