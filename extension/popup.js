@@ -299,6 +299,39 @@ $("export-btn").addEventListener("click", () => {
   URL.revokeObjectURL(url)
 })
 
+// ─── Check for updates ─────────────────────────────────────────────
+const GITHUB_MANIFEST_URL = "https://raw.githubusercontent.com/rcstrue/esicip/main/extension/manifest.json"
+const GITHUB_ZIP_URL = "https://github.com/rcstrue/esicip/raw/main/extension/esic-extension.zip"
+
+$("check-update-btn").addEventListener("click", async () => {
+  const status = $("update-status")
+  status.style.display = "block"
+  status.className = "status-msg status-info"
+  status.textContent = "Checking for updates..."
+
+  try {
+    const res = await fetch(GITHUB_MANIFEST_URL, { cache: "no-store" })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const manifest = await res.json()
+
+    const currentVersion = chrome.runtime.getManifest().version
+    const latestVersion = manifest.version
+
+    if (currentVersion === latestVersion) {
+      status.className = "status-msg status-success"
+      status.textContent = `✓ You're on the latest version (${currentVersion})`
+    } else {
+      status.className = "status-msg status-warning"
+      status.innerHTML = `⬆ Update available! You have v${currentVersion}, latest is v${latestVersion}.<br/><br/>` +
+        `<a href="${GITHUB_ZIP_URL}" target="_blank" style="color:#1e40af;font-weight:500;">Download esic-extension.zip</a><br/><br/>` +
+        `Then: unzip to same folder → go to chrome://extensions/ → click 🔄 reload`
+    }
+  } catch (err) {
+    status.className = "status-msg status-error"
+    status.textContent = `Could not check for updates: ${err.message}. Make sure you're online and the GitHub repo is public.`
+  }
+})
+
 // ─── Send message to active tab's content script ───────────────────
 async function sendMessageToTab(message) {
   try {

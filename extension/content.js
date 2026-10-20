@@ -176,8 +176,69 @@ function detectPage() {
   ])) {
     return "nominee"
   }
-  // Success page
-  return "success"
+  // Dashboard: has logout button + multiple modal buttons
+  if (
+    findField(["#imgbtnLogout", "input[id*='Logout' i]"]) ||
+    (location.href.includes("PortalHome") && findField(["#btnYes", "#btnNo"]))
+  ) {
+    return "dashboard"
+  }
+  // Success page: look for actual success indicators
+  const bodyText = document.body.innerText || ""
+  if (
+    bodyText.match(/Insurance\s*(?:No|Number)[^\d]*\d{10}/i) ||
+    bodyText.match(/successfully registered/i) ||
+    bodyText.match(/IP\s*(?:No|Number)[^\d]*\d{10}/i)
+  ) {
+    return "success"
+  }
+  return "unknown"
+}
+
+// ─── DASHBOARD: auto-dismiss modal popups ──────────────────────────
+function handleDashboard() {
+  const dismissed = []
+
+  // Dismiss common modal popups on the dashboard
+  // "Either last logged-in session was not closed" → click X
+  if (findField(["#div1_close"])) {
+    clickElement(["#div1_close"])
+    dismissed.push("session warning")
+  }
+  // "Interested employers can register..." → click NO
+  if (findField(["#btnNo"])) {
+    clickElement(["#btnNo"])
+    dismissed.push("free offer popup")
+  }
+  // Various "I Agree" / "OK" / "Close" modals
+  const modalButtons = [
+    { sel: "#btnpnlcolse", name: "I Agree (policy)" },
+    { sel: "#btnpnlPwdcolse", name: "I Agree (password)" },
+    { sel: "#btnpnlSanjeevanicolse", name: "Sanjeevani Close" },
+    { sel: "#btnncsclose", name: "Registration Status OK" },
+    { sel: "#BtnOK1", name: "OK" },
+  ]
+  for (const btn of modalButtons) {
+    if (findField([btn.sel])) {
+      // Only click if the button is visible (modal is showing)
+      const el = findField([btn.sel])
+      if (el && el.offsetParent !== null) {
+        clickElement([btn.sel])
+        dismissed.push(btn.name)
+      }
+    }
+  }
+
+  if (dismissed.length > 0) {
+    return {
+      type: "info",
+      message: `✓ Dismissed ${dismissed.length} popup(s): ${dismissed.join(", ")}. Now navigate to Employee → Add Employee.`,
+    }
+  }
+  return {
+    type: "info",
+    message: "📋 Dashboard. Navigate to: Employee → Add Employee (or New Registration) to start filling.",
+  }
 }
 
 // ─── PAGE 1: ENTRY ─────────────────────────────────────────────────
@@ -785,13 +846,16 @@ async function fillPage() {
       fillResult = fillAadhaar(ipData)
       break
     case "main":
-      fillResult = fillMain(ipData)
+      fillResult = await fillMain(ipData)
       break
     case "bank":
       fillResult = fillBank(ipData)
       break
     case "nominee":
       fillResult = fillNominee(ipData)
+      break
+    case "dashboard":
+      fillResult = handleDashboard()
       break
     case "success":
       const ipNumber = extractIpNumber()
@@ -809,7 +873,7 @@ async function fillPage() {
       }
       break
     default:
-      fillResult = { type: "error", message: "Not on a recognized ESIC registration page." }
+      fillResult = { type: "info", message: "Not on a recognized ESIC page. Navigate to Add Employee or another registration page." }
   }
 
   await chrome.storage.local.set({ currentPage: page, lastFillResult: fillResult })

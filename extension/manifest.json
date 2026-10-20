@@ -1,12 +1,14 @@
 {
   "manifest_version": 3,
   "name": "ESIC IP Auto-Fill",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Auto-fills ESIC IP registration forms from a queue.json file. You just click Submit.",
   "permissions": ["storage", "activeTab", "scripting", "tabs"],
   "host_permissions": [
     "https://portal.esic.gov.in/*",
-    "https://www.esic.in/*"
+    "https://www.esic.in/*",
+    "https://raw.githubusercontent.com/*",
+    "https://github.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
