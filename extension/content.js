@@ -40,6 +40,19 @@ function setFieldValue(selectors, value) {
   return true
 }
 
+// ─── Helper: wait for a dropdown to have options (AJAX-loaded) ─────
+async function waitForOptions(selectors, timeout = 15000) {
+  const start = Date.now()
+  while (Date.now() - start < timeout) {
+    const el = findField(selectors)
+    if (el && el.options && el.options.length > 1) {
+      return el // Dropdown is populated
+    }
+    await new Promise((r) => setTimeout(r, 500))
+  }
+  return null // Timed out
+}
+
 // ─── Helper: set a <select> by value ───────────────────────────────
 function setSelect(selectors, value) {
   const el = findField(selectors)
@@ -290,13 +303,19 @@ function fillAadhaar(data) {
   }
 }
 
-// ─── PAGE 3: MAIN FORM ─────────────────────────────────────────────
-function fillMain(data) {
+// ─── PAGE 3: MAIN FORM (async — waits for AJAX dropdowns) ─────────
+async function fillMain(data) {
   const filled = []
   const errors = []
 
-  // 1. Name
-  if (!getFieldValue(["#ctl00_HomePageContent_ctrlTextEmpName"])) {
+  // 0. Disability — click "No" (at top of form)
+  if (!isRadioChecked(["#ctl00_HomePageContent_ctrlRDIpDisable_1"])) {
+    checkRadio(["#ctl00_HomePageContent_ctrlRDIpDisable_1"])
+    filled.push("Disability=No")
+  }
+
+  // 1. Name (skip if already pre-filled from Aadhaar session)
+  if (!getFieldValue(["#ctl00_HomePageContent_ctrlTextEmpName"]) && data.EmpName) {
     setValue("#ctl00_HomePageContent_ctrlTextEmpName", data.EmpName)
     filled.push("Name")
   }
@@ -314,27 +333,27 @@ function fillMain(data) {
     filled.push("Father")
   }
 
-  // 3. Father/Husband name
-  if (!getFieldValue(["#ctl00_HomePageContent_ctrlTextFatherHusName"])) {
+  // 3. Father/Husband name (skip if pre-filled)
+  if (!getFieldValue(["#ctl00_HomePageContent_ctrlTextFatherHusName"]) && data.FatherOrHusbandName) {
     setValue("#ctl00_HomePageContent_ctrlTextFatherHusName", data.FatherOrHusbandName)
     filled.push("Father/Husband name")
   }
 
-  // 4. DOB (readonly date picker)
+  // 4. DOB (skip if pre-filled)
   const dobEl = document.querySelector("#ctl00_HomePageContent_ctrlTxtIpDate")
-  if (dobEl && !dobEl.value) {
+  if (dobEl && !dobEl.value && data.DOB) {
     setValue("#ctl00_HomePageContent_ctrlTxtIpDate", data.DOB)
     filled.push("DOB")
   }
 
-  // 5. Marital status
+  // 5. Marital status (skip if pre-filled)
   const maritalEl = document.querySelector("#ctl00_HomePageContent_ctrlRDMarried")
-  if (maritalEl && maritalEl.value !== data.MaritalStatus) {
+  if (maritalEl && maritalEl.value !== data.MaritalStatus && data.MaritalStatus) {
     setSelect(["#ctl00_HomePageContent_ctrlRDMarried"], data.MaritalStatus)
     filled.push("Marital status")
   }
 
-  // 6. Gender radio (PostBack)
+  // 6. Gender radio (PostBack — skip if pre-filled)
   const genderMap = { M: "_0", F: "_1", TG: "_2" }
   const gSuffix = genderMap[data.Gender] || "_0"
   const gSel = `#ctl00_HomePageContent_ctrlRDMale${gSuffix}`
@@ -344,9 +363,8 @@ function fillMain(data) {
     return { type: "info", message: `✓ Selected Gender ${data.Gender}. Page reloading (PostBack)...` }
   }
 
-  // ─── 10. Present Address ─────────────────────────────────────────
-  // Address line 1
-  if (!getFieldValue(["#ctl00_HomePageContent_ctrlTextPresentAddress1"])) {
+  // ─── 10. Present Address (skip if pre-filled) ───────────────────
+  if (!getFieldValue(["#ctl00_HomePageContent_ctrlTextPresentAddress1"]) && data.PresentAddress) {
     setValue("#ctl00_HomePageContent_ctrlTextPresentAddress1", data.PresentAddress)
     filled.push("Present Address")
   }
@@ -357,59 +375,67 @@ function fillMain(data) {
     setValue("#ctl00_HomePageContent_ctrlTextPresentAddress3", data.PresentAddress3)
   }
 
-  // Pin code
-  if (!getFieldValue(["#ctl00_HomePageContent_ctrlTxtPresentPinCode"])) {
+  // Pin code (skip if pre-filled)
+  if (!getFieldValue(["#ctl00_HomePageContent_ctrlTxtPresentPinCode"]) && data.PinCode) {
     setValue("#ctl00_HomePageContent_ctrlTxtPresentPinCode", data.PinCode)
     filled.push("PIN")
   }
 
-  // Mobile
-  if (!getFieldValue(["#ctl00_HomePageContent_ctrlTextPresentMobileNo"])) {
+  // Mobile (skip if pre-filled)
+  if (!getFieldValue(["#ctl00_HomePageContent_ctrlTextPresentMobileNo"]) && data.MobileNo) {
     setValue("#ctl00_HomePageContent_ctrlTextPresentMobileNo", data.MobileNo)
     filled.push("Mobile")
   }
 
   // Email (optional)
-  if (data.Email) {
-    const emailEl = document.querySelector("#ctl00_HomePageContent_ctrlTextPresentEmail")
-    if (emailEl && !emailEl.value) {
-      setValue("#ctl00_HomePageContent_ctrlTextPresentEmail", data.Email)
-    }
+  if (data.Email && !getFieldValue(["#ctl00_HomePageContent_ctrlTextPresentEmail"])) {
+    setValue("#ctl00_HomePageContent_ctrlTextPresentEmail", data.Email)
   }
 
-  // Present State (PostBack → loads districts) — ONLY fill if not already set
-  const stateEl = document.querySelector("#ctl00_HomePageContent_ctrlTxtPresentState")
+  // ─── Present State (AJAX-loaded — WAIT for options) ─────────────
+  const stateSelectors = ["#ctl00_HomePageContent_ctrlTxtPresentState"]
+  const stateEl = findField(stateSelectors)
   if (stateEl && stateEl.value !== data.PresentState && data.PresentState) {
-    setSelect(["#ctl00_HomePageContent_ctrlTxtPresentState"], data.PresentState)
-    return { type: "info", message: "✓ Selected Present State. Loading districts (PostBack)..." }
-  }
-
-  // Present District (after state PostBack — check if dropdown has options)
-  const distEl = document.querySelector("#ctl00_HomePageContent_ctrlTextPresentDistrict")
-  if (distEl && distEl.options.length > 1 && getSelectLabel(["#ctl00_HomePageContent_ctrlTextPresentDistrict"]) !== data.PresentDistrict) {
-    const ok = setSelectByLabel(["#ctl00_HomePageContent_ctrlTextPresentDistrict"], data.PresentDistrict)
-    if (!ok) {
-      errors.push(`Present District '${data.PresentDistrict}' not found in dropdown`)
+    // Wait for the dropdown to be populated by AJAX
+    const populated = await waitForOptions(stateSelectors, 15000)
+    if (populated) {
+      setSelect(stateSelectors, data.PresentState)
+      return { type: "info", message: "✓ Selected Present State. Waiting for districts to load (PostBack)..." }
     } else {
-      filled.push("District")
+      errors.push("Present State dropdown didn't load options — click it manually to trigger load, then click 'Fill this page now'")
     }
   }
 
-  // 11. Permanent Address — copy from present if CopyPresentToPermanent = Yes
+  // ─── Present District (after state PostBack — WAIT for options) ─
+  const distSelectors = ["#ctl00_HomePageContent_ctrlTextPresentDistrict"]
+  const distEl = findField(distSelectors)
+  if (distEl && data.PresentDistrict) {
+    const currentDistLabel = getSelectLabel(distSelectors)
+    if (currentDistLabel !== data.PresentDistrict) {
+      const populated = await waitForOptions(distSelectors, 15000)
+      if (populated) {
+        const ok = setSelectByLabel(distSelectors, data.PresentDistrict)
+        if (!ok) {
+          errors.push(`Present District '${data.PresentDistrict}' not found in dropdown`)
+        } else {
+          filled.push("District")
+        }
+      }
+    }
+  }
+
+  // 11. Permanent Address — copy from present
   if (data.CopyPresentToPermanent === "Yes") {
     const chk = document.querySelector("#ctl00_HomePageContent_chkboxCopyPresentAddress")
     if (chk && !chk.checked) {
       checkCheckbox(["#ctl00_HomePageContent_chkboxCopyPresentAddress"])
       filled.push("Copy→Permanent")
     }
-  } else if (data.PermanentAddress) {
-    // Fill permanent address manually
-    if (!getFieldValue(["#ctl00_HomePageContent_ctrlTextPermanentAddress1"])) {
-      setValue("#ctl00_HomePageContent_ctrlTextPermanentAddress1", data.PermanentAddress)
-    }
+  } else if (data.PermanentAddress && !getFieldValue(["#ctl00_HomePageContent_ctrlTextPermanentAddress1"])) {
+    setValue("#ctl00_HomePageContent_ctrlTextPermanentAddress1", data.PermanentAddress)
   }
 
-  // ─── 12a. Dispensary/IMP/mEUD For IP ─────────────────────────────
+  // ─── 12a. Dispensary/IMP/mEUD For IP ────────────────────────────
   // Dispensary type radio
   const dispTypeMap = { Dispensary: "_0", IMP: "_1", EMud: "_2" }
   const dSuffix = dispTypeMap[data.DispensaryType] || "_0"
@@ -422,75 +448,112 @@ function fillMain(data) {
     }
   }
 
-  // Dispensary State (PostBack)
-  const dispStateEl = document.querySelector("#ctl00_HomePageContent_ddlDispensaryState")
+  // Dispensary State (WAIT for options)
+  const dispStateSelectors = ["#ctl00_HomePageContent_ddlDispensaryState"]
+  const dispStateEl = findField(dispStateSelectors)
   if (dispStateEl && dispStateEl.value !== data.DispensaryState && data.DispensaryState) {
-    setSelect(["#ctl00_HomePageContent_ddlDispensaryState"], data.DispensaryState)
-    return { type: "info", message: "✓ Selected Dispensary State (12a). Loading districts..." }
-  }
-
-  // Dispensary District (PostBack)
-  const dispDistEl = document.querySelector("#ctl00_HomePageContent_ddlDispensaryDistrict")
-  if (dispDistEl && dispDistEl.options.length > 1 && getSelectLabel(["#ctl00_HomePageContent_ddlDispensaryDistrict"]) !== data.DispensaryDistrict) {
-    const ok = setSelectByLabel(["#ctl00_HomePageContent_ddlDispensaryDistrict"], data.DispensaryDistrict)
-    if (!ok) {
-      errors.push(`Dispensary District '${data.DispensaryDistrict}' not found`)
-    }
-    return { type: "info", message: "✓ Selected Dispensary District (12a). Loading dispensaries..." }
-  }
-
-  // Dispensary Name
-  const dispNameEl = document.querySelector("#ctl00_HomePageContent_ctrlTextDispensary")
-  if (dispNameEl && dispNameEl.options.length > 1 && getSelectLabel(["#ctl00_HomePageContent_ctrlTextDispensary"]) !== data.DispensaryName) {
-    const ok = setSelectByLabel(["#ctl00_HomePageContent_ctrlTextDispensary"], data.DispensaryName)
-    if (!ok) {
-      errors.push(`Dispensary Name '${data.DispensaryName}' not found`)
+    const populated = await waitForOptions(dispStateSelectors, 15000)
+    if (populated) {
+      setSelect(dispStateSelectors, data.DispensaryState)
+      return { type: "info", message: "✓ Selected Dispensary State (12a). Waiting for districts..." }
+    } else {
+      errors.push("Dispensary State dropdown didn't load options")
     }
   }
 
-  // ─── 12b. Dispensary/IMP/mEUD for Family Members ────────────────
-  // Same data as 12a — fill if these fields exist
+  // Dispensary District (WAIT for options)
+  const dispDistSelectors = ["#ctl00_HomePageContent_ddlDispensaryDistrict"]
+  const dispDistEl = findField(dispDistSelectors)
+  if (dispDistEl && data.DispensaryDistrict) {
+    const currentLabel = getSelectLabel(dispDistSelectors)
+    if (currentLabel !== data.DispensaryDistrict) {
+      const populated = await waitForOptions(dispDistSelectors, 15000)
+      if (populated) {
+        setSelectByLabel(dispDistSelectors, data.DispensaryDistrict)
+        return { type: "info", message: "✓ Selected Dispensary District (12a). Waiting for dispensaries..." }
+      }
+    }
+  }
+
+  // Dispensary Name (WAIT for options)
+  const dispNameSelectors = ["#ctl00_HomePageContent_ctrlTextDispensary"]
+  const dispNameEl = findField(dispNameSelectors)
+  if (dispNameEl && data.DispensaryName) {
+    const currentLabel = getSelectLabel(dispNameSelectors)
+    if (currentLabel !== data.DispensaryName) {
+      const populated = await waitForOptions(dispNameSelectors, 15000)
+      if (populated) {
+        const ok = setSelectByLabel(dispNameSelectors, data.DispensaryName)
+        if (!ok) {
+          errors.push(`Dispensary Name '${data.DispensaryName}' not found`)
+        }
+      }
+    }
+  }
+
+  // ─── 12b. Dispensary for Family Members (same data as 12a) ──────
   const depDispStateEl = document.querySelector("#ctl00_HomePageContent_ddldependantDispensaryState")
   if (depDispStateEl) {
-    // Dispensary type
-    const depTypeMap = { Dispensary: "_0", IMP: "_1", EMud: "_2" }
-    const depSuffix = depTypeMap[data.DispensaryType] || "_0"
+    // Type
+    const depSuffix = dispTypeMap[data.DispensaryType] || "_0"
     checkRadio([`#ctl00_HomePageContent_ctrlRBDependantDispensaryIMP${depSuffix}`])
 
-    // State
+    // State (WAIT for options)
     if (depDispStateEl.value !== data.DispensaryState && data.DispensaryState) {
-      setSelect(["#ctl00_HomePageContent_ddldependantDispensaryState"], data.DispensaryState)
-      return { type: "info", message: "✓ Selected Family Dispensary State (12b). Loading districts..." }
+      const depStateSelectors = ["#ctl00_HomePageContent_ddldependantDispensaryState"]
+      const populated = await waitForOptions(depStateSelectors, 15000)
+      if (populated) {
+        setSelect(depStateSelectors, data.DispensaryState)
+        return { type: "info", message: "✓ Selected Family Dispensary State (12b). Waiting for districts..." }
+      }
     }
 
-    // District
-    const depDispDistEl = document.querySelector("#ctl00_HomePageContent_ddldependantDispensaryDistrict")
-    if (depDispDistEl && depDispDistEl.options.length > 1 && getSelectLabel(["#ctl00_HomePageContent_ddldependantDispensaryDistrict"]) !== data.DispensaryDistrict) {
-      setSelectByLabel(["#ctl00_HomePageContent_ddldependantDispensaryDistrict"], data.DispensaryDistrict)
-      return { type: "info", message: "✓ Selected Family Dispensary District (12b). Loading dispensaries..." }
+    // District (WAIT for options)
+    const depDistSelectors = ["#ctl00_HomePageContent_ddldependantDispensaryDistrict"]
+    const depDistEl = findField(depDistSelectors)
+    if (depDistEl && data.DispensaryDistrict) {
+      const currentLabel = getSelectLabel(depDistSelectors)
+      if (currentLabel !== data.DispensaryDistrict) {
+        const populated = await waitForOptions(depDistSelectors, 15000)
+        if (populated) {
+          setSelectByLabel(depDistSelectors, data.DispensaryDistrict)
+          return { type: "info", message: "✓ Selected Family Dispensary District (12b). Waiting for dispensaries..." }
+        }
+      }
     }
 
-    // Dispensary name
-    const depDispNameEl = document.querySelector("#ctl00_HomePageContent_ddldependantdispensary")
-    if (depDispNameEl && depDispNameEl.options.length > 1 && getSelectLabel(["#ctl00_HomePageContent_ddldependantdispensary"]) !== data.DispensaryName) {
-      setSelectByLabel(["#ctl00_HomePageContent_ddldependantdispensary"], data.DispensaryName)
+    // Dispensary Name (WAIT for options)
+    const depNameSelectors = ["#ctl00_HomePageContent_ddldependantdispensary"]
+    const depNameEl = findField(depNameSelectors)
+    if (depNameEl && data.DispensaryName) {
+      const currentLabel = getSelectLabel(depNameSelectors)
+      if (currentLabel !== data.DispensaryName) {
+        const populated = await waitForOptions(depNameSelectors, 15000)
+        if (populated) {
+          setSelectByLabel(depNameSelectors, data.DispensaryName)
+        }
+      }
     }
     filled.push("Family Dispensary (12b)")
   }
 
-  // 18. Appointment date (readonly)
+  // 18. Appointment date (readonly — set via JS)
   const doaEl = document.querySelector("#ctl00_HomePageContent_ctrlDIDateOfAppointmentDy")
-  if (doaEl && !doaEl.value) {
+  if (doaEl && !doaEl.value && data.AppointmentDate) {
     setValue("#ctl00_HomePageContent_ctrlDIDateOfAppointmentDy", data.AppointmentDate)
     filled.push("Appointment date")
   }
 
-  // 19. SMS Language
-  if (data.SMSLanguage) {
-    const langEl = document.querySelector("#ctl00_HomePageContent_ddllanguage")
-    if (langEl && langEl.selectedIndex === 0) {
-      const ok = setSelectByLabel(["#ctl00_HomePageContent_ddllanguage"], data.SMSLanguage)
+  // 19. SMS Language (WAIT for options)
+  const langSelectors = ["#ctl00_HomePageContent_ddllanguage"]
+  const langEl = findField(langSelectors)
+  if (langEl && langEl.selectedIndex === 0 && data.SMSLanguage) {
+    const populated = await waitForOptions(langSelectors, 15000)
+    if (populated) {
+      const ok = setSelectByLabel(langSelectors, data.SMSLanguage)
       if (ok) filled.push("SMS Language")
+    } else {
+      errors.push("SMS Language dropdown didn't load options")
     }
   }
 
@@ -503,12 +566,12 @@ function fillMain(data) {
 
   // Report
   if (errors.length > 0) {
-    return { type: "error", message: `Filled: ${filled.join(", ")}. Errors: ${errors.join("; ")}` }
+    return { type: "warning", message: `Filled: ${filled.join(", ")}. ⚠ ${errors.join("; ")}` }
   }
   if (filled.length > 0) {
     return { type: "success", message: `✓ Filled: ${filled.join(", ")}. Review and click Submit.` }
   }
-  return { type: "info", message: "All fields already filled. Review and click Submit." }
+  return { type: "info", message: "All fields filled. Review and click Submit." }
 }
 
 // ─── PAGE 4: BANK DETAILS ──────────────────────────────────────────
@@ -767,14 +830,35 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 })
 
-// ─── Auto-fill on page load ────────────────────────────────────────
-setTimeout(async () => {
+// ─── Auto-fill on page load (with retry for AJAX dropdowns) ─────────
+let autoFillRetries = 0
+const MAX_AUTO_RETRIES = 3
+
+async function autoFill() {
   const data = await chrome.storage.local.get(["queue", "currentIndex"])
-  if (data.queue && data.queue.length > 0) {
-    const page = detectPage()
-    if (page !== "unknown") {
-      console.log("[ESIC Auto-Fill] Auto-filling page:", page)
-      fillPage()
-    }
+  if (!data.queue || data.queue.length === 0) return
+
+  const page = detectPage()
+  if (page === "unknown") return
+
+  console.log(`[ESIC Auto-Fill] Auto-filling page: ${page} (attempt ${autoFillRetries + 1})`)
+  const result = await fillPage()
+
+  // If the fill reported that dropdowns didn't load, retry after a delay
+  if (
+    result.fillResult &&
+    result.fillResult.type === "warning" &&
+    autoFillRetries < MAX_AUTO_RETRIES &&
+    (result.fillResult.message.includes("didn't load") ||
+      result.fillResult.message.includes("not found"))
+  ) {
+    autoFillRetries++
+    console.log(`[ESIC Auto-Fill] Retrying in 5 seconds... (${autoFillRetries}/${MAX_AUTO_RETRIES})`)
+    setTimeout(autoFill, 5000)
+  } else {
+    autoFillRetries = 0
   }
-}, 2000)
+}
+
+// Initial fill after 5 seconds (give AJAX time to start loading)
+setTimeout(autoFill, 5000)
