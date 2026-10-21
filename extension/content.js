@@ -654,7 +654,10 @@ async function fillMain(data) {
     // Wait for the dropdown to be populated by AJAX
     const populated = await waitForOptions(stateSelectors, 15000)
     if (populated) {
-      setSelect(stateSelectors, data.PresentState)
+      // Live Present-State <select> uses the state NAME as the value, so
+      // match by label (works whether the option value is the name or a code).
+      const ok = setSelectByLabel(stateSelectors, data.PresentState)
+      if (!ok) errors.push(`Present State '${data.PresentState}' not found in dropdown`)
       return { type: "info", message: "✓ Selected Present State. Waiting for districts to load (PostBack)..." }
     } else {
       errors.push("Present State dropdown didn't load options — click it manually to trigger load, then click 'Fill this page now'")

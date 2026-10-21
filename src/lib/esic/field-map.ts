@@ -203,7 +203,7 @@ export const FIELD_MAP: FieldSpec[] = [
     type: "select",
     required: true,
     portalLabel: "Present State",
-    runnerNote: "Set value to the state CODE (e.g. 29 for Gujarat). onchange fires selectPresentStates() which PostBacks to load districts.",
+    runnerNote: "Set value to the state NAME (e.g. Gujarat) — the live <select> uses the name as the option value. onchange fires selectPresentStates() which PostBacks to load districts.",
     triggersPostBack: true,
   },
   {
@@ -264,7 +264,7 @@ export const FIELD_MAP: FieldSpec[] = [
     type: "select",
     required: true,
     portalLabel: "Dispensary State",
-    runnerNote: "Set state CODE. onchange triggers PostBack to load districts.",
+    runnerNote: "Set the numeric state CODE (e.g. 29 for Gujarat) — the dispensary <select> uses codes as option values. onchange triggers PostBack to load districts.",
     triggersPostBack: true,
   },
   {

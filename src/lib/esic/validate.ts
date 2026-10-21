@@ -288,7 +288,9 @@ export function validateRow(rowIndex: number, raw: Record<string, string>): Norm
   }
   normalized.Email = email
 
-  // Present State — translate to code
+  // Present State — the live <select> uses the state NAME as the option
+  // value (e.g. <option value="Gujarat">Gujarat</option>), so keep the label.
+  // (Dispensary State uses numeric codes — handled separately below.)
   const presentStateRaw = get("PresentState")
   const presentStateCode = STATE_NAME_TO_CODE[presentStateRaw.toLowerCase()]
   if (!presentStateCode) {
@@ -298,7 +300,7 @@ export function validateRow(rowIndex: number, raw: Record<string, string>): Norm
       message: `PresentState '${presentStateRaw}' not recognized. Use state names like Gujarat, Maharashtra, etc.`,
     })
   }
-  normalized.PresentState = presentStateCode ?? presentStateRaw
+  normalized.PresentState = presentStateRaw // label — matches the live select's value
 
   // Present District — label kept as-is (codes are state-specific, loaded at runtime by portal)
   if (!get("PresentDistrict")) {
