@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ESIC IP Bulk Registration Helper</title>
+  <meta name="description" content="Validate ESIC employee CSVs, translate labels to portal codes, and export a queue.json / Chrome extension for the ESIC IP bulk-registration flow." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='4' fill='%23dc2626'/%3E%3Cpath d='M5 13l4 4L19 7' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <div class="wrap">
+        <h1>ESIC IP Bulk Registration Helper</h1>
+        <p>Validate your CSV → export <code>queue.json</code> + the Chrome extension. The extension auto-fills every field and auto-clicks Submit/Continue/Save — no captcha after login.</p>
+        <span class="badge">No captcha after login — bulk runs feasible</span>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <!-- Step 1 -->
+      <section class="card" id="step-upload">
+        <div class="step-head"><span class="step-num">1</span><h2>Upload your CSV</h2></div>
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Drop CSV here or click to choose">
+          <p><strong>Drop your CSV here</strong> or click to choose a file</p>
+          <p class="hint">Expects the columns in the template (EmpName, FatherOrHusbandName, DOB, …). 32 columns.</p>
+          <input type="file" id="file-input" accept=".csv,text/csv" hidden />
+        </div>
+        <details class="paste-block">
+          <summary>…or paste CSV text</summary>
+          <textarea id="paste-area" rows="6" placeholder="EmpName,RelationType,FatherOrHusbandName,DOB,&#10;KISHAN MOTIBHAI JADAV,Father,MOTIBHAI JADAV,15/05/1983,…"></textarea>
+          <button class="btn btn-secondary" id="paste-btn">Validate pasted CSV</button>
+        </details>
+        <button class="btn btn-outline" id="template-btn">⬇ Download CSV template</button>
+        <div id="upload-error" class="alert alert-error" hidden></div>
+        <div id="upload-loading" class="alert alert-info" hidden>Validating…</div>
+      </section>
+
+      <!-- Step 2 -->
+      <section class="card hidden" id="step-review">
+        <div class="step-head"><span class="step-num">2</span><h2>Validate &amp; Review</h2></div>
+        <div class="summary-grid" id="summary-grid"></div>
+        <div class="filters" id="filters"></div>
+        <div class="table-wrap">
+          <table id="results-table">
+            <thead><tr><th>#</th><th>Name</th><th>Status</th><th>Issues</th></tr></tr></thead>
+            <tbody id="results-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Step 3 -->
+      <section class="card hidden" id="step-export">
+        <div class="step-head"><span class="step-num">3</span><h2>Export</h2></div>
+        <p class="hint">Establishment Code (auto-filled into the queue):</p>
+        <div class="est-row">
+          <input type="text" id="est-code" value="39000547790001019" />
+          <button class="btn btn-outline" id="est-reset">Reset to default</button>
+        </div>
+        <div class="export-grid">
+          <div class="export-card primary">
+            <h3>🧩 Chrome Extension <span class="tag">Recommended</span></h3>
+            <p>Auto-fills every ESIC page + auto-clicks Submit/Continue/Save (live-form mode). Always the latest version — fetched from the repo on the fly.</p>
+            <button class="btn btn-primary" id="dl-extension">⬇ Download esic-extension.zip</button>
+            <span class="ext-status" id="ext-status"></span>
+          </div>
+          <div class="export-card">
+            <h3>📄 queue.json</h3>
+            <p>Codes already translated (Gujarat, Married, Savings, Father…). Load this into the extension popup.</p>
+            <button class="btn btn-primary" id="dl-queue">⬇ Download esic-queue.json</button>
+          </div>
+          <div class="export-card">
+            <h3>📑 Corrected CSV</h3>
+            <p>Your CSV re-written with normalized codes. For your records.</p>
+            <button class="btn btn-secondary" id="dl-csv">⬇ Download esic-corrected.csv</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Docs -->
+      <details class="card docs">
+        <summary>📖 How the runner works &amp; field map</summary>
+        <p>The login captcha is the <strong>only</strong> human gate. Once logged in, the extension chains through all 4 pages (entry → main → bank → nominee → success) for every IP in the queue. <strong>~30–45 s per IP.</strong> Bank-document + Self-Photo file picks stay manual (browser security); everything else is automated.</p>
+        <p>See the full field map + master codes in the <a href="https://github.com/rcstrue/esicip" target="_blank" rel="noopener">GitHub repo</a> → <code>src/lib/esic/field-map.ts</code>.</p>
+        <div class="limits">
+          <div><strong>Bank doc + Self Photo</strong> — picked manually; Submit auto-fires after.</div>
+          <div><strong>Nominee XML</strong> — best-guess format; check DevTools if Save fails.</div>
+          <div><strong>State/district codes</strong> — loaded server-side per state; the extension waits for each PostBack.</div>
+          <div><strong>PII</strong> — your CSV has Aadhaar/bank numbers. Keep it on encrypted storage. This page never uploads anything — all validation runs in your browser.</div>
+        </div>
+      </details>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap">
+        <span>All processing happens in your browser — no server, no upload. <a href="https://github.com/rcstrue/esicip" target="_blank" rel="noopener">Source on GitHub</a>.</span>
+      </div>
+    </footer>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
