@@ -464,73 +464,92 @@ async function fillEntry(data) {
     return { type: "info", message: "✓ Filled mobile number. Click 'Validate' to verify it, then click Continue." }
   }
 
-  // 4. Click Continue
+  // 4. Click Continue (broad selectors — live id may differ)
   const continueBtn = findField([
     "#ctl00_HomePageContent_btnContinue",
-    "input[value='Continue']",
+    "#ctl00_HomePageContent_btnSubmit",
+    "#ctl00_HomePageContent_btnProceed",
+    "input[type='submit'][value='Continue']",
+    "input[type='submit'][value='Submit']",
+    "input[type='submit'][value='Proceed']",
+    "input[type='submit'][value='Save & Continue']",
+    "input[type='button'][value='Continue']",
+    "input[type='button'][value='Proceed']",
     "input[onclick*='Continue' i]",
+    "a[onclick*='Continue' i]",
   ])
   if (continueBtn) {
-    return { type: "info", message: "✓ Entry page ready. Click 'Continue' to proceed to Aadhaar page." }
+    return { type: "success", message: `✓ Entry page ready${filled.length ? ": " + filled.join(", ") : ""}. Auto-clicking Continue → Aadhaar page.` }
   }
   return { type: "info", message: "Entry page: No selected + mobile filled. Click Validate (if shown), then Continue." }
 }
 
-// ─── PAGE 2: AADHAAR ───────────────────────────────────────────────
-function fillAadhaar(data) {
+// ─── PAGE 2: AADHAAR (live page: Empe_ip_Abha.aspx) ────────────────
+async function fillAadhaar(data) {
   const filled = []
 
-  // 1. Fill Aadhaar number
+  // 1. Fill Aadhaar number. The live field is type=password, id
+  //    txtAadhaarNo, maxlength 12. Wait for it (present at load).
   const aadhaarSelectors = [
+    "#ctl00_HomePageContent_txtAadhaarNo",
     "#ctl00_HomePageContent_txtAadhaar",
     "#ctl00_HomePageContent_ctrlTextAadhaar",
-    "#ctl00_HomePageContent_txtAadhaarNo",
-    "input[name*='Aadhaar']",
-    "input[id*='Aadhaar']",
+    "input[name*='AadhaarNo' i]",
+    "input[id*='AadhaarNo' i]",
+    "input[type='password'][maxlength='12']",
+    "input[placeholder*='Aadhaar' i]",
+    "input[placeholder*='VID' i]",
   ]
-  const aadhaarEl = findField(aadhaarSelectors)
+  const aadhaarEl = await waitForField(aadhaarSelectors, 8000)
   if (aadhaarEl && !aadhaarEl.value && data.AadhaarNumber) {
     setFieldValue(aadhaarSelectors, data.AadhaarNumber)
     filled.push("Aadhaar")
+  } else if (aadhaarEl && aadhaarEl.value) {
+    filled.push("Aadhaar (pre-filled)")
+  } else if (!aadhaarEl && data.AadhaarNumber) {
+    return {
+      type: "warning",
+      message: "⚠ Aadhaar field not found. Run 🔍 Diagnose on the Aadhaar page and paste the diagnostic so I can pin the exact id.",
+    }
   }
 
-  // 2. Select "Later" — could be a radio, dropdown, or link
-  //    Try radio buttons with value "Later" or text containing "Later"
+  // 1b. Tick the Aadhaar consent checkbox if present (chkAadaaar).
+  const consentChk = document.querySelector("#ctl00_HomePageContent_chkAadaaar")
+  if (consentChk && !consentChk.checked) {
+    checkCheckbox(["#ctl00_HomePageContent_chkAadaaar"])
+    filled.push("Consent")
+  }
+
+  // 2. Select "Later" (do biometric later). The live radio is
+  //    rbtnListAadhaarNow_1 and its VALUE is "1" (not "Later"), so the
+  //    old input[value='Later'] selector never matched — that's why
+  //    Later was never selected and no Continue appeared. Selecting it
+  //    triggers a PostBack that reveals the Continue button.
   const laterSelectors = [
-    "input[value='Later']",
-    "input[value='later']",
-    "input[onclick*='Later']",
-    "label:has-text('Later') input",
-    "#ctl00_HomePageContent_rbtnLater",
-    "input[id*='Later']",
+    "#ctl00_HomePageContent_rbtnListAadhaarNow_1",
+    "input[name='ctl00$HomePageContent$rbtnListAadhaarNow'][value='1']",
+    "input[id*='rbtnListAadhaarNow_1']",
+    "input[name*='rbtnListAadhaarNow'][value='1']",
   ]
   const laterEl = findField(laterSelectors)
-  if (laterEl) {
+  if (laterEl && !laterEl.checked) {
     checkRadio(laterSelectors)
+    return {
+      type: "info",
+      message: "✓ Selected 'Later' for Aadhaar biometric. Page reloading (PostBack) — will continue after reload.",
+    }
+  }
+  if (laterEl && laterEl.checked) {
     filled.push("Later")
-  } else {
-    // Try dropdown option
-    const laterSelect = setSelectByLabel([
-      "select[name*='Aadhaar']",
-      "select[id*='Aadhaar']",
-      "select[id*='ddlOption']",
-    ], "Later")
-    if (laterSelect) filled.push("Later (dropdown)")
   }
 
-  // 3. Click Continue/Submit
-  const continueBtn = findField([
-    "#ctl00_HomePageContent_btnContinue",
-    "#ctl00_HomePageContent_btnSubmit",
-    "input[value='Continue']",
-    "input[value='Submit']",
-    "input[onclick*='Continue']",
-  ])
-
+  // 3. After Later is selected, a Continue/Submit button is revealed.
+  //    The live-form auto-clicker fires it (getPageSubmitSelector for
+  //    aadhaar). Return success so it proceeds.
   if (filled.length > 0) {
     return {
       type: "success",
-      message: `✓ Filled: ${filled.join(", ")}. Click Continue to proceed to main form.`,
+      message: `✓ Filled: ${filled.join(", ")}. Looking for Continue to proceed to the main form.`,
     }
   }
   return {
@@ -1014,10 +1033,20 @@ function getPageSubmitSelector(page) {
       return [
         "#ctl00_HomePageContent_btnContinue",
         "#ctl00_HomePageContent_btnSubmit",
+        "#ctl00_HomePageContent_btnSave",
         "input[type='submit'][value='Continue']",
         "input[type='submit'][value='Submit']",
+        "input[type='submit'][value='Save']",
+        "input[type='submit'][value='Save & Continue']",
+        "input[type='submit'][value='Proceed']",
+        "input[type='submit'][value='Next']",
+        "input[type='button'][value='Continue']",
+        "input[type='button'][value='Submit']",
+        "input[type='button'][value='Proceed']",
+        "input[type='button'][value='Next']",
         "input[onclick*='Continue' i]",
         "input[onclick*='Submit' i]",
+        "a[onclick*='Continue' i]",
       ]
     case "main":
       return [
@@ -1238,7 +1267,7 @@ async function fillPage() {
       fillResult = await fillEntry(ipData)
       break
     case "aadhaar":
-      fillResult = fillAadhaar(ipData)
+      fillResult = await fillAadhaar(ipData)
       break
     case "main":
       fillResult = await fillMain(ipData)
