@@ -127,12 +127,13 @@
     <p>Auto-fills forms · You click Submit</p>
   </div>
 
-  <!-- No queue loaded -->
+  <!-- No employees loaded yet -->
   <div id="no-queue" class="section">
-    <h2>Load Queue</h2>
-    <p class="hint">Load the <strong>queue.json</strong> file you exported from the web tool.</p>
-    <input type="file" id="file-input" class="file-input" accept=".json" />
-    <button class="btn btn-primary" id="load-btn">Choose queue.json</button>
+    <h2>Load Employees</h2>
+    <p class="hint">Load your <strong>.xlsx</strong>, <strong>.csv</strong>, or <strong>queue.json</strong> directly — the extension validates + builds the queue right here. No web tool needed.</p>
+    <input type="file" id="file-input" class="file-input" accept=".xlsx,.xls,.csv,.json" />
+    <button class="btn btn-primary" id="load-btn">Load .xlsx / .csv / queue.json</button>
+    <div id="load-summary" class="status-msg status-info" style="display:none;"></div>
   </div>
 
   <!-- Queue loaded - main view -->
@@ -202,6 +203,6 @@
     </div>
   </div>
 
-  <script src="popup.js"></script>
+  <script type="module" src="popup.js"></script>
 </body>
 </html>

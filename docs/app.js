@@ -18,6 +18,7 @@ const EXTENSION_FILES = [
   "manifest.json",
   "popup.html",
   "popup.js",
+  "lib.bundle.js",
   "content.js",
   "dialog-patch.js",
   "background.js",

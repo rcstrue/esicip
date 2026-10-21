@@ -1,3 +1,5 @@
+import { parseWorkbook, parseCSV, validateRows, summarize, buildQueue } from "./lib.bundle.js"
+
 // ═══════════════════════════════════════════════════════════════════
 //  ESIC IP Auto-Fill — Popup script
 //  Manages the extension popup UI and communicates with content.js
@@ -162,23 +164,71 @@ $("load-btn").addEventListener("click", () => $("file-input").click())
 $("file-input").addEventListener("change", async (e) => {
   const file = e.target.files[0]
   if (!file) return
+  const summary = $("load-summary")
+  if (summary) {
+    summary.style.display = "block"
+    summary.className = "status-msg status-info"
+    summary.textContent = "Loading " + file.name + "…"
+  }
   try {
-    const text = await file.text()
-    const queue = JSON.parse(text)
-    if (!queue.items || !Array.isArray(queue.items)) {
-      throw new Error("Invalid queue.json — missing 'items' array")
+    const name = (file.name || "").toLowerCase()
+    let items = null
+    let validationSummary = null
+    if (name.endsWith(".json")) {
+      const queue = JSON.parse(await file.text())
+      if (!queue.items || !Array.isArray(queue.items)) {
+        throw new Error("Invalid queue.json — missing 'items' array")
+      }
+      items = queue.items
+    } else if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
+      const buf = await file.arrayBuffer()
+      const { rows } = parseWorkbook(buf)
+      if (rows.length === 0) throw new Error("Spreadsheet has no data rows")
+      const validated = validateRows(rows)
+      validationSummary = summarize(validated)
+      items = buildQueue(validated).items
+    } else if (name.endsWith(".csv")) {
+      const { rows } = parseCSV(await file.text())
+      if (rows.length === 0) throw new Error("CSV has no data rows")
+      const validated = validateRows(rows)
+      validationSummary = summarize(validated)
+      items = buildQueue(validated).items
+    } else {
+      throw new Error("Unsupported file. Use .xlsx, .csv, or queue.json.")
     }
-    state.queue = queue.items
+    if (!items || items.length === 0) {
+      const s = validationSummary
+      throw new Error(
+        s
+          ? "No ready/warning rows (0 ready, " + s.error + " error). Fix the issues in the file and reload."
+          : "No items to process."
+      )
+    }
+    state.queue = items
     state.currentIndex = 0
     state.results = []
     state.currentPage = "unknown"
     state.lastFillResult = null
     await saveState()
     render()
+    if (summary && validationSummary) {
+      const s = validationSummary
+      summary.className = "status-msg status-success"
+      summary.textContent =
+        "✓ " + s.total + " row(s): " + s.ready + " ready, " + s.warning + " warning, " + s.error + " error → " + items.length + " queued"
+    } else if (summary) {
+      summary.className = "status-msg status-success"
+      summary.textContent = "✓ Loaded " + items.length + " item(s) from queue.json"
+    }
     // Trigger fill on the current tab
     await sendMessageToTab({ action: "fillPage" })
   } catch (err) {
-    alert("Failed to load queue.json: " + err.message)
+    if (summary) {
+      summary.className = "status-msg status-error"
+      summary.textContent = "Failed: " + err.message
+    } else {
+      alert("Failed: " + err.message)
+    }
   }
 })
 
