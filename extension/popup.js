@@ -418,7 +418,7 @@ $("export-btn").addEventListener("click", () => {
 
 // ─── Check for updates ─────────────────────────────────────────────
 const GITHUB_MANIFEST_URL = "https://raw.githubusercontent.com/rcstrue/esicip/main/extension/manifest.json"
-const GITHUB_ZIP_URL = "https://github.com/rcstrue/esicip/raw/main/extension/esic-extension.zip"
+const GITHUB_ZIP_URL = "https://rcstrue.github.io/esicip/"  // live site — always serves the latest extension
 
 $("check-update-btn").addEventListener("click", async () => {
   const status = $("update-status")

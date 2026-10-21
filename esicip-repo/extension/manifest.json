@@ -1,19 +1,23 @@
 {
   "manifest_version": 3,
   "name": "ESIC IP Auto-Fill",
-  "version": "1.1.2",
-  "description": "Auto-fills ESIC IP registration forms, auto-clicks Submit/Continue/Save (live-form mode), and supports macro recording/replay so it self-heals when ESIC changes field IDs.",
+  "version": "1.1.3",
+  "description": "Auto-fills ESIC IP forms, auto-clicks Submit/Continue/Save (live-form), macro recording, and auto-updates from GitHub.",
   "permissions": [
     "storage",
     "activeTab",
     "scripting",
-    "tabs"
+    "tabs",
+    "alarms",
+    "downloads",
+    "notifications"
   ],
   "host_permissions": [
     "https://portal.esic.gov.in/*",
     "https://www.esic.in/*",
     "https://raw.githubusercontent.com/*",
-    "https://github.com/*"
+    "https://github.com/*",
+    "https://api.github.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
