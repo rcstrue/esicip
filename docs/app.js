@@ -153,6 +153,26 @@ function downloadTemplate() {
   triggerDownload("esic-ip-template.csv", templateCSV(), "text/csv");
   toast("Template downloaded", "success");
 }
+
+async function downloadXlsxTemplate() {
+  const btn = $("xlsx-btn")
+  if (btn) { btn.disabled = true; btn.textContent = "Building…"; }
+  try {
+    const buf = await buildTemplateXlsx()
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "esic-ip-template.xlsx"
+    a.click()
+    URL.revokeObjectURL(url)
+    toast("xlsx template downloaded (Sheet 2 has the dropdown lists)", "success")
+  } catch (e) {
+    toast("Failed to build xlsx template: " + e.message, "error")
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "⬇ xlsx template (with dropdowns)"; }
+  }
+}
 function downloadQueue() {
   if (!validated) return;
   const est = $("est-code").value.trim() || null;
@@ -260,6 +280,7 @@ function init() {
     if (t) runValidation(t);
   });
   $("template-btn").addEventListener("click", downloadTemplate);
+  $("xlsx-btn").addEventListener("click", downloadXlsxTemplate);
   $("dl-queue").addEventListener("click", downloadQueue);
   $("dl-csv").addEventListener("click", downloadCsv);
   $("dl-extension").addEventListener("click", downloadExtension);

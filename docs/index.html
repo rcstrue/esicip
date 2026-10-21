@@ -7,7 +7,6 @@
   <meta name="description" content="Validate ESIC employee CSVs, translate labels to portal codes, and export a queue.json / Chrome extension for the ESIC IP bulk-registration flow." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='4' fill='%23dc2626'/%3E%3Cpath d='M5 13l4 4L19 7' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
 </head>
 <body>
   <div class="page">
@@ -33,7 +32,10 @@
           <textarea id="paste-area" rows="6" placeholder="EmpName,RelationType,FatherOrHusbandName,DOB,&#10;KISHAN MOTIBHAI JADAV,Father,MOTIBHAI JADAV,15/05/1983,…"></textarea>
           <button class="btn btn-secondary" id="paste-btn">Validate pasted CSV</button>
         </details>
-        <button class="btn btn-outline" id="template-btn">⬇ Download CSV template</button>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn btn-outline" id="template-btn">⬇ CSV template</button>
+          <button class="btn btn-outline" id="xlsx-btn">⬇ xlsx template (with dropdowns)</button>
+        </div>
         <div id="upload-error" class="alert alert-error" hidden></div>
         <div id="upload-loading" class="alert alert-info" hidden>Validating…</div>
       </section>

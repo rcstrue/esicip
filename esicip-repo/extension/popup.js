@@ -1,4 +1,4 @@
-import { parseWorkbook, parseCSV, validateRows, summarize, buildQueue } from "./lib.bundle.js"
+import { parseWorkbook, parseCSV, validateRows, summarize, buildQueue, buildTemplateXlsx } from "./lib.bundle.js"
 
 // ═══════════════════════════════════════════════════════════════════
 //  ESIC IP Auto-Fill — Popup script
@@ -160,6 +160,28 @@ function render() {
 
 // ─── Load queue.json ───────────────────────────────────────────────
 $("load-btn").addEventListener("click", () => $("file-input").click())
+
+// ─── Download xlsx template (Sheet 1 columns + Sheet 2 dropdown lists) ──
+$("tpl-btn").addEventListener("click", async () => {
+  const btn = $("tpl-btn")
+  btn.disabled = true
+  btn.textContent = "Building…"
+  try {
+    const buf = await buildTemplateXlsx()
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "esic-ip-template.xlsx"
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    alert("Failed to build xlsx template: " + e.message)
+  } finally {
+    btn.disabled = false
+    btn.textContent = "⬇ Download xlsx template (with dropdowns)"
+  }
+})
 
 $("file-input").addEventListener("change", async (e) => {
   const file = e.target.files[0]
