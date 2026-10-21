@@ -119,6 +119,21 @@
     .result-item .err { color: #991b1b; }
     .file-input { display: none; }
     .hint { font-size: 11px; color: #999; margin-top: 4px; }
+  .vsection { max-height: 260px; overflow-y: auto; border: 1px solid #f0f0f0; border-radius: 6px; padding: 0 10px; margin-top: 6px; }
+  .vrow { padding: 7px 0; border-bottom: 1px solid #f3f3f3; font-size: 12px; }
+  .vrow:last-child { border-bottom: none; }
+  .vrow .vtop { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+  .vrow .vname { font-weight: 600; font-size: 12px; }
+  .vrow .vmeta { font-size: 10px; color: #888; margin-left: 6px; }
+  .vrow ul { list-style: none; padding: 0; margin: 3px 0 0; }
+  .vrow li { font-size: 11px; margin: 1px 0; line-height: 1.35; }
+  .vrow li.err { color: #991b1b; }
+  .vrow li.warn { color: #92400e; }
+  .vrow li.ok { color: #065f46; }
+  .vrow li code { background: #f3f4f6; padding: 0 4px; border-radius: 3px; font-size: 10px; }
+  .vchip { border:1px solid #e5e5e5; background:#fff; padding:3px 9px; border-radius:999px; font-size:11px; cursor:pointer; font-weight:600; color:#4b5563; }
+  .vchip.active { background:#dc2626; color:#fff; border-color:#dc2626; }
+  .vchip + .vchip { margin-left:4px; }
   </style>
 </head>
 <body>
@@ -139,6 +154,13 @@
 
   <!-- Queue loaded - main view -->
   <div id="main-view" style="display:none;">
+    <div class="section" id="validation-section" style="display:none;">
+      <h2>Validation Results</h2>
+      <div id="v-summary" class="status-msg status-info" style="margin-bottom:6px;"></div>
+      <div id="v-filters" style="margin-bottom:4px;"></div>
+      <div class="vsection" id="v-list"></div>
+    </div>
+
     <div class="section">
       <h2>Current IP</h2>
       <div class="current-ip" id="current-ip-box">

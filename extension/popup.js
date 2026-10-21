@@ -18,6 +18,8 @@ let state = {
   useMacro: false, // ▶ replay recorded selectors instead of built-in map
   recording: false, // 🎥 currently recording a macro
   macroStepCount: 0,
+  validation: null, // { summary, validated[] } from the last xlsx/csv load
+  validationFilter: "all",
 }
 
 // ─── Load state from chrome.storage on popup open ──────────────────
@@ -156,6 +158,82 @@ function render() {
     }
     list.appendChild(div)
   }
+
+  renderValidation()
+}
+
+function escapeHtml(s) {
+  return String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]))
+}
+
+// ─── Validation results (per-row issues from the last xlsx/csv load) ──
+function renderValidation() {
+  const sec = $("validation-section")
+  if (!sec) return
+  if (!state.validation) { sec.style.display = "none"; return }
+  sec.style.display = "block"
+  const { summary: s, validated } = state.validation
+  const sum = $("v-summary")
+  const cls = s.error > 0 ? "error" : s.warning > 0 ? "warning" : "success"
+  sum.className = "status-msg status-" + cls
+  sum.textContent = s.total + " row(s): " + s.ready + " ready · " + s.warning + " warning · " + s.error + " error → " + state.queue.length + " queued"
+  const filters = [
+    { key: "all", label: "All", count: s.total },
+    { key: "ready", label: "Ready", count: s.ready },
+    { key: "warning", label: "Warning", count: s.warning },
+    { key: "error", label: "Error", count: s.error },
+  ]
+  $("v-filters").innerHTML = filters
+    .map((f) => '<button class="vchip" data-vf="' + f.key + '">' + f.label + " " + f.count + "</button>")
+    .join("")
+  const cur = state.validationFilter || "all"
+  $("v-filters").querySelectorAll(".vchip").forEach((c) => {
+    if (c.dataset.vf === cur) c.classList.add("active")
+    c.addEventListener("click", () => {
+      state.validationFilter = c.dataset.vf
+      renderValidation()
+    })
+  })
+  const rows = validated.filter((r) => cur === "all" || r.status === cur)
+  const list = $("v-list")
+  if (!rows.length) {
+    list.innerHTML = '<div style="padding:14px;text-align:center;color:#999;">No rows in this filter.</div>'
+    return
+  }
+  list.innerHTML = rows
+    .map((r) => {
+      const name = (r.normalized && r.normalized.EmpName) || "—"
+      const iss =
+        r.issues && r.issues.length
+          ? r.issues
+              .map(
+                (i) =>
+                  '<li class="' +
+                  (i.severity === "error" ? "err" : "warn") +
+                  '"><code>' +
+                  escapeHtml(i.column) +
+                  "</code> " +
+                  escapeHtml(i.message) +
+                  "</li>",
+              )
+              .join("")
+          : '<li class="ok">✓ ready — no issues</li>'
+      const bcls = r.status === "ready" ? "badge-ready" : r.status === "warning" ? "badge-warning" : "badge-error"
+      return (
+        '<div class="vrow"><div class="vtop"><span><span class="vname">' +
+        escapeHtml(name) +
+        '</span><span class="vmeta">row ' +
+        r.rowIndex +
+        '</span></span><span class="badge ' +
+        bcls +
+        '">' +
+        r.status +
+        "</span></div><ul>" +
+        iss +
+        "</ul></div>"
+      )
+    })
+    .join("")
 }
 
 // ─── Load queue.json ───────────────────────────────────────────────
@@ -196,6 +274,7 @@ $("file-input").addEventListener("change", async (e) => {
     const name = (file.name || "").toLowerCase()
     let items = null
     let validationSummary = null
+    let validatedRows = null
     if (name.endsWith(".json")) {
       const queue = JSON.parse(await file.text())
       if (!queue.items || !Array.isArray(queue.items)) {
@@ -209,15 +288,20 @@ $("file-input").addEventListener("change", async (e) => {
       const validated = validateRows(rows)
       validationSummary = summarize(validated)
       items = buildQueue(validated).items
+      validatedRows = validated
     } else if (name.endsWith(".csv")) {
       const { rows } = parseCSV(await file.text())
       if (rows.length === 0) throw new Error("CSV has no data rows")
       const validated = validateRows(rows)
       validationSummary = summarize(validated)
       items = buildQueue(validated).items
+      validatedRows = validated
     } else {
       throw new Error("Unsupported file. Use .xlsx, .csv, or queue.json.")
     }
+    state.validation = validationSummary && validatedRows ? { summary: validationSummary, validated: validatedRows } : null
+    state.validationFilter = "all"
+
     if (!items || items.length === 0) {
       const s = validationSummary
       throw new Error(
@@ -463,6 +547,8 @@ $("reset-btn").addEventListener("click", async () => {
   state.results = []
   state.currentPage = "unknown"
   state.lastFillResult = null
+  state.validation = null
+  state.validationFilter = "all"
   await chrome.storage.local.clear()
   render()
 })
