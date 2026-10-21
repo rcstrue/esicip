@@ -7,10 +7,11 @@ export const runtime = "nodejs"
 
 const REPO_DIR = join(process.cwd(), "esicip-repo")
 
-/** Recursively add files from a directory to the zip */
+/** Recursively add files from a directory to the zip (skips .git) */
 function addDirToZip(zip: JSZip, dirPath: string, zipPath: string) {
   const entries = readdirSync(dirPath)
   for (const entry of entries) {
+    if (entry === ".git") continue // skip git internals
     const fullPath = join(dirPath, entry)
     const entryZipPath = zipPath ? `${zipPath}/${entry}` : entry
     const stat = statSync(fullPath)
