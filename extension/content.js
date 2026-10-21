@@ -53,6 +53,31 @@ async function waitForOptions(selectors, timeout = 15000) {
   return null // Timed out
 }
 
+// ─── Helper: wait for ANY field to appear (AJAX-loaded text/tel) ──
+async function waitForField(selectors, timeout = 10000) {
+  const start = Date.now()
+  while (Date.now() - start < timeout) {
+    const el = findField(selectors)
+    if (el) return el
+    await new Promise((r) => setTimeout(r, 400))
+  }
+  return null // Timed out
+}
+
+// ─── Helper: set a value directly on a found element ───────────────
+function setValueOnEl(el, value) {
+  if (!el) return false
+  const setter =
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set ||
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set
+  if (setter) setter.call(el, value)
+  else el.value = value
+  el.dispatchEvent(new Event("input", { bubbles: true }))
+  el.dispatchEvent(new Event("change", { bubbles: true }))
+  el.dispatchEvent(new Event("blur", { bubbles: true }))
+  return true
+}
+
 // ─── Helper: set a <select> by value ───────────────────────────────
 function setSelect(selectors, value) {
   const el = findField(selectors)
@@ -260,13 +285,43 @@ async function handleDashboard() {
     if (!clicked) break // dashboard is clear → go navigate
   }
 
-  // ─── Navigate to "Add Employee" / "New Registration" ────────────────
+  // ─── Navigate to "Register/Enroll New Employee" ─────────────────────
+  // Fast path: click the link by its stable id (lnkRegisterNewIP) first —
+  // the visible text "Register/Enroll New Employee" didn't match the old
+  // keyword list, so the dashboard never auto-opened the entry page.
+  const idNavSelectors = [
+    "#lnkRegisterNewIP",
+    "a[id*='RegisterNewIP' i]",
+    "a[id*='RegisterNew' i]",
+    "a[id*='NewIP' i]",
+    "a[id*='Enroll' i]",
+    "a[id*='Register' i]:not([id*='Update' i]):not([id*='Modify' i])",
+  ]
+  for (const sel of idNavSelectors) {
+    const el = document.querySelector(sel)
+    if (el && (el.offsetParent !== null || el.getClientRects().length > 0)) {
+      console.log(`[ESIC Auto-Fill] Dashboard nav by id: ${sel}`)
+      try {
+        el.click()
+        return {
+          type: "info",
+          message: `✓ Dismissed ${dismissed.length} popup(s) + clicked "Register/Enroll New Employee". Opening entry page…`,
+        }
+      } catch (e) {
+        console.log(`[ESIC Auto-Fill] id nav click failed:`, e)
+      }
+    }
+  }
+
   const navKeywords = [
-    "Add Employee",
-    "Add New Employee",
-    "New Registration",
+    "Register/Enroll New Employee",
+    "Register New Employee",
+    "Enroll New Employee",
     "Register New IP",
     "Register IP",
+    "New Registration",
+    "Add Employee",
+    "Add New Employee",
     "New IP",
     "Employee Registration",
   ]
@@ -333,7 +388,7 @@ async function handleDashboard() {
 }
 
 // ─── PAGE 1: ENTRY ─────────────────────────────────────────────────
-function fillEntry(data) {
+async function fillEntry(data) {
   const filled = []
 
   // 1. Click "No" for "Was the Employee ever allotted a ESI Number?"
@@ -350,7 +405,10 @@ function fillEntry(data) {
     return { type: "info", message: "✓ Clicked 'No' (new IP). Page may reload. Will continue after reload." }
   }
 
-  // 2. Fill mobile number (field ID is txtmobilenumber — all lowercase)
+  // 2. Fill mobile number. The entry page renders this field via AJAX
+  //    AFTER the "No" PostBack, and the exact id/name varies across ESIC
+  //    builds — so we wait for it (up to 10s), try many selectors, and
+  //    fall back to "any visible empty 10-digit text/tel input".
   const mobileSelectors = [
     "#ctl00_HomePageContent_txtmobilenumber",
     "#ctl00_HomePageContent_ctrlTextPresentMobileNo",
@@ -359,13 +417,39 @@ function fillEntry(data) {
     "#ctl00_HomePageContent_txtMobile",
     "input[name*='mobilenumber' i]",
     "input[id*='mobilenumber' i]",
+    "input[name*='mobileno' i]",
+    "input[id*='mobileno' i]",
     "input[name*='Mobile' i][maxlength='10']",
     "input[id*='Mobile' i]:not([disabled])",
+    "input[type='tel'][maxlength='10']",
+    "input[type='tel']:not([disabled]):not([readonly])",
+    "input[placeholder*='mobile' i]",
   ]
-  const mobileEl = findField(mobileSelectors)
+  let mobileEl = await waitForField(mobileSelectors, 10000)
+  // Generic fallback: any visible, empty, 10-digit text/tel/number input.
+  if (!mobileEl) {
+    const candidates = document.querySelectorAll(
+      "input[type='text'], input[type='tel'], input[type='number']",
+    )
+    for (const c of candidates) {
+      if (c.disabled || c.readOnly) continue
+      if (c.maxLength === 10 && isVisible(c) && !c.value) {
+        mobileEl = c
+        break
+      }
+    }
+  }
   if (mobileEl && !mobileEl.value && data.MobileNo) {
-    setFieldValue(mobileSelectors, data.MobileNo)
+    setValueOnEl(mobileEl, data.MobileNo)
     filled.push("Mobile")
+  } else if (!mobileEl && data.MobileNo) {
+    // Return a WARNING so the live-form auto-click does NOT fire Continue
+    // before the mobile number is entered. Ask the user for a diagnostic.
+    return {
+      type: "warning",
+      message:
+        "⚠ Mobile-number field not found on the entry page. With the mobile field visible, click 🔍 Diagnose page in the popup and paste the diagnostic so I can pin the exact field id/name.",
+    }
   }
 
   // 3. Click Validate button (if present — validates the mobile number)
@@ -1110,7 +1194,7 @@ async function fillPage() {
 
   switch (page) {
     case "entry":
-      fillResult = fillEntry(ipData)
+      fillResult = await fillEntry(ipData)
       break
     case "aadhaar":
       fillResult = fillAadhaar(ipData)
