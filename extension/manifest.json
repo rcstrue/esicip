@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ESIC IP Auto-Fill",
-  "version": "1.0.8",
-  "description": "Auto-fills ESIC IP registration forms from queue.json and auto-clicks Submit/Continue/Save (live-form mode).",
+  "version": "1.1.0",
+  "description": "Auto-fills ESIC IP registration forms, auto-clicks Submit/Continue/Save (live-form mode), and supports macro recording/replay so it self-heals when ESIC changes field IDs.",
   "permissions": [
     "storage",
     "activeTab",

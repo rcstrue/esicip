@@ -13,6 +13,9 @@ let state = {
   currentPage: "unknown",
   lastFillResult: null,
   autoClickMode: true, // 🤖 live-form mode: auto-click Submit/Continue/Save + dashboard popups
+  useMacro: false, // ▶ replay recorded selectors instead of built-in map
+  recording: false, // 🎥 currently recording a macro
+  macroStepCount: 0,
 }
 
 // ─── Load state from chrome.storage on popup open ──────────────────
@@ -24,6 +27,9 @@ async function loadState() {
     "currentPage",
     "lastFillResult",
     "autoClickMode",
+    "useMacro",
+    "recording",
+    "macro",
   ])
   state.queue = data.queue || []
   state.currentIndex = data.currentIndex || 0
@@ -31,6 +37,9 @@ async function loadState() {
   state.currentPage = data.currentPage || "unknown"
   state.lastFillResult = data.lastFillResult || null
   state.autoClickMode = data.autoClickMode !== false // default ON
+  state.useMacro = !!data.useMacro
+  state.recording = !!data.recording
+  state.macroStepCount = (data.macro && Array.isArray(data.macro.steps)) ? data.macro.steps.length : 0
   render()
 }
 
@@ -42,6 +51,7 @@ async function saveState() {
     currentPage: state.currentPage,
     lastFillResult: state.lastFillResult,
     autoClickMode: state.autoClickMode,
+    useMacro: state.useMacro,
   })
 }
 
@@ -85,6 +95,28 @@ function render() {
   if (toggle) {
     toggle.checked = !!state.autoClickMode
     if (row) row.classList.toggle("off", !state.autoClickMode)
+  }
+
+  // ▶ Macro recorder
+  const useT = $("usemacro-toggle")
+  const useRow = $("usemacro-row")
+  if (useT) {
+    useT.checked = !!state.useMacro
+    if (useRow) useRow.classList.toggle("off", !state.useMacro)
+  }
+  const mStat = $("macro-status")
+  if (mStat) {
+    if (state.recording) {
+      mStat.style.display = "block"
+      mStat.className = "status-msg status-warning"
+      mStat.textContent = `🔴 Recording… ${state.macroStepCount} step(s) captured. Fill the current employee manually, then click Stop.`
+    } else if (state.macroStepCount > 0) {
+      mStat.style.display = "block"
+      mStat.className = "status-msg status-success"
+      mStat.textContent = `✓ ${state.macroStepCount} step(s) recorded${state.useMacro ? " · replaying" : ""}.`
+    } else {
+      mStat.style.display = "none"
+    }
   }
 
   // Page status
@@ -162,6 +194,44 @@ $("autoclick-toggle").addEventListener("change", async (e) => {
   render()
   // Re-trigger the current page fill so the auto-click kicks in immediately
   if (state.autoClickMode) await sendMessageToTab({ action: "fillPage" })
+})
+
+// ─── ▶ Macro Recorder controls ─────────────────────────────────────
+$("record-btn").addEventListener("click", async () => {
+  await chrome.storage.local.set({ recording: true, macro: { steps: [], version: 1, learnedAt: Date.now() }, replayCursor: 0 })
+  state.recording = true
+  state.macroStepCount = 0
+  render()
+  await sendMessageToTab({ action: "startRecording" })
+})
+
+$("stop-btn").addEventListener("click", async () => {
+  await sendMessageToTab({ action: "stopRecording" })
+  await new Promise((r) => setTimeout(r, 300))
+  const data = await chrome.storage.local.get(["macro"])
+  state.recording = false
+  state.macroStepCount = (data.macro && data.macro.steps) ? data.macro.steps.length : 0
+  await chrome.storage.local.set({ recording: false })
+  render()
+})
+
+$("usemacro-toggle").addEventListener("change", async (e) => {
+  state.useMacro = e.target.checked
+  await saveState()
+  await chrome.storage.local.set({ replayCursor: 0, lastReplayIndex: -1 })
+  render()
+  if (state.useMacro) await sendMessageToTab({ action: "fillPage" })
+})
+
+$("clearmacro-btn").addEventListener("click", async () => {
+  if (!confirm("Clear the recorded macro?")) return
+  await sendMessageToTab({ action: "clearMacro" })
+  state.recording = false
+  state.macroStepCount = 0
+  state.useMacro = false
+  await saveState()
+  await chrome.storage.local.set({ macro: null, recording: false, replayCursor: 0, lastReplayIndex: -1 })
+  render()
 })
 
 // ─── Diagnose page (for debugging — dumps all fields) ──────────────

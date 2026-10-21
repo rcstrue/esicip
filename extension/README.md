@@ -81,6 +81,28 @@ C:\Users\SHAILESH PATEL\esic-extension\
 - ✅ **Prev/Next IP** — navigate between employees
 - ✅ **Reset** — clear everything and start over
 
+## 🎥 Macro Recorder (self-heals when ESIC changes field IDs)
+
+If the built-in selectors ever fail (ESIC renames a field, adds a new
+page, etc.), record a macro once and the extension will replay your exact
+live selectors for every other employee:
+
+1. Load your `queue.json` (the recorder matches the values you type to
+   your queue's CSV columns — so load the queue FIRST).
+2. In the popup → **Macro Recorder** → click **🔴 Record**.
+3. Manually fill the current employee across all pages (entry → main →
+   bank → nominee → success), clicking Submit/Continue/Save yourself.
+   The content script captures every field's real `id`/`name` and every
+   button you click.
+4. Click **⏹ Stop**. The popup shows "✓ N steps recorded".
+5. Turn on **▶ Use recorded macro**.
+6. Click **Next IP →** — for each subsequent employee the extension
+   replays your recorded selectors with that employee's values, then the
+   live-form auto-clicker fires Submit/Continue/Save. File-pick steps
+   (Self Photo, bank doc) still pause for you to choose the file.
+
+Re-record any time ESIC changes its fields — no code update needed.
+
 ## Limitations
 
 1. **Bank document upload** — the extension CANNOT auto-upload the cheque/passbook PDF (browser security restriction). You must select the file + click Upload manually on the bank page. The extension fills all other fields.

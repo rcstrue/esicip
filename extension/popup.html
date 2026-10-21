@@ -175,6 +175,21 @@
     </div>
 
     <div class="section">
+      <h2>Macro Recorder</h2>
+      <div id="macro-status" class="status-msg status-info" style="display:none;"></div>
+      <div class="btn-row" style="margin-top:6px;">
+        <button class="btn btn-secondary" id="record-btn">🔴 Record</button>
+        <button class="btn btn-secondary" id="stop-btn">⏹ Stop</button>
+      </div>
+      <label class="toggle-row" id="usemacro-row" style="margin-top:6px;" title="When ON, the extension replays your recorded selectors + values for each employee (instead of the built-in field map). Re-record if ESIC changes its field IDs.">
+        <input type="checkbox" id="usemacro-toggle" />
+        <span>▶ Use recorded macro</span>
+      </label>
+      <button class="btn btn-secondary" id="clearmacro-btn" style="margin-top:6px;">🗑 Clear macro</button>
+      <p class="hint" style="margin-top:4px;">Record once while filling one employee manually — the extension learns the exact live field IDs by matching the values you type to your queue, then replays them for every other employee.</p>
+    </div>
+
+    <div class="section">
       <h2>Results (<span id="results-count">0</span>)</h2>
       <div class="results-list" id="results-list"></div>
       <button class="btn btn-secondary" id="export-btn" style="margin-top:6px;">Export results.csv</button>

@@ -793,6 +793,15 @@ async function fillMain(data) {
     }
   }
 
+  // 19b. Self Photo upload (REQUIRED). Browser security blocks auto-
+  //    picking the file, so warn + watch; once picked we auto-click
+  //    "Upload Photo" then the main Submit. Without this, Submit fails.
+  const photoFileEl = document.querySelector("#ctl00_HomePageContent_FileUpload_Photo")
+  if (photoFileEl && !photoFileEl.value) {
+    watchPhotoUploadThen()
+    errors.push("Upload Self Photo (required): pick the photo file — extension auto-clicks 'Upload Photo' then Submit")
+  }
+
   // 20. Declaration checkbox (required for Submit)
   const decChk = document.querySelector("#ctl00_HomePageContent_dec_chkbox")
   if (decChk && !decChk.checked) {
@@ -1012,6 +1021,7 @@ function getPageSubmitSelector(page) {
       ]
     case "main":
       return [
+        "#ctl00_HomePageContent_Submit",
         "#ctl00_HomePageContent_btnSubmit",
         "#ctl00_HomePageContent_btnSubmitEmp",
         "input[id*='btnSubmit' i]",
@@ -1065,6 +1075,37 @@ function watchBankDocThenSubmit() {
   }
   fileEl.addEventListener("change", trySubmit)
   fileEl.addEventListener("input", trySubmit)
+}
+
+// ─── Main form: Self Photo upload watcher ───────────────────────────
+// The "Upload Self Photo" field is REQUIRED but a file input can't be
+// auto-picked (browser security). Once the user picks the photo, auto-
+// click "Upload Photo", then auto-click the main Submit.
+let photoWatcherSet = false
+function watchPhotoUploadThen() {
+  if (photoWatcherSet) return
+  photoWatcherSet = true
+  const fileEl = document.querySelector("#ctl00_HomePageContent_FileUpload_Photo")
+  if (!fileEl) {
+    photoWatcherSet = false
+    return
+  }
+  const uploadBtn = document.querySelector("#ctl00_HomePageContent_UploadButton")
+  console.log("[ESIC Auto-Fill] Main form: waiting for Self Photo upload → will auto-click 'Upload Photo' + Submit")
+  const onPick = async () => {
+    if (!fileEl.value) return
+    await sleep(800)
+    if (uploadBtn && !uploadBtn.disabled && isVisible(uploadBtn)) {
+      console.log("[ESIC Auto-Fill] Photo picked — auto-clicking 'Upload Photo'")
+      uploadBtn.click()
+    }
+    // Give the upload/PostBack a moment, then auto-click main Submit.
+    await sleep(2500)
+    const res = clickFirstVisible(getPageSubmitSelector("main") || [], "main-submit")
+    if (res.clicked) console.log("[ESIC Auto-Fill] Photo uploaded — auto-clicked main Submit")
+  }
+  fileEl.addEventListener("change", onPick)
+  fileEl.addEventListener("input", onPick)
 }
 
 // ─── Bank page 2-step button flow: Search (PostBack) → Submit ────────
@@ -1241,6 +1282,164 @@ async function fillPage() {
   return { currentPage: page, fillResult, ipNumber: page === "success" ? extractIpNumber() : "" }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  MACRO RECORDER + REPLAYER (opt-in)
+//  Records the user's manual fill of ONE employee — capturing the exact
+//  live selectors and auto-matching each typed value to a CSV column of
+//  the loaded queue — then replays those selectors+values for the rest.
+//  Self-heals when ESIC changes field IDs: just re-record.
+//  Active only when the popup turns "Use recorded macro" on.
+// ═══════════════════════════════════════════════════════════════════
+
+// Stable CSS selector for an element (#id > [name=] > nth-of-type path)
+function stableSelector(el) {
+  if (!el) return null
+  if (el.id) return "#" + CSS.escape(el.id)
+  if (el.name) return `[name="${CSS.escape(el.name)}"]`
+  const parts = []
+  let node = el
+  while (node && node.nodeType === 1 && node !== document.body && node.parentElement) {
+    const tag = node.tagName.toLowerCase()
+    const sibs = Array.from(node.parentElement.children).filter((c) => c.tagName === node.tagName)
+    const idx = sibs.indexOf(node) + 1
+    parts.unshift(sibs.length > 1 ? `${tag}:nth-of-type(${idx})` : tag)
+    node = node.parentElement
+  }
+  return parts.length ? "body > " + parts.join(" > ") : null
+}
+
+// Match a typed value to a CSV column of the current queue item.
+function matchColumn(val, item) {
+  if (!val || !item) return null
+  const norm = item.normalized || {}
+  const v = String(val).trim()
+  for (const [k, fv] of Object.entries(norm)) {
+    if (fv != null && String(fv).trim() === v) return k
+  }
+  return null
+}
+
+let macroRecording = false
+let macroSteps = []
+let recListenersAttached = false
+
+function attachRecordListeners() {
+  if (recListenersAttached) return
+  recListenersAttached = true
+  document.addEventListener("input", onRecInput, true)
+  document.addEventListener("change", onRecInput, true)
+  document.addEventListener("click", onRecClick, true)
+  console.log("[ESIC Auto-Fill] 🎥 Record listeners attached")
+}
+
+function onRecInput(e) {
+  if (!macroRecording) return
+  const el = e.target
+  if (!el || !el.tagName) return
+  const tag = el.tagName
+  if (tag !== "INPUT" && tag !== "SELECT" && tag !== "TEXTAREA") return
+  if (["file", "hidden", "submit", "button", "image"].includes(el.type)) return
+  const sel = stableSelector(el)
+  if (!sel) return
+  const val = el.value
+  chrome.storage.local.get(["queue", "currentIndex"], (data) => {
+    const item = data.queue && data.queue[data.currentIndex]
+    const column = matchColumn(val, item)
+    upsertStep({
+      selector: sel,
+      action: "set",
+      column: column || undefined,
+      value: column ? undefined : val,
+      label: column || "static",
+    })
+  })
+}
+
+function onRecClick(e) {
+  if (!macroRecording) return
+  const el = e.target.closest
+    ? e.target.closest("input[type='submit'], input[type='button'], input[type='image'], button, a, [role='button']")
+    : null
+  if (!el) return
+  const sel = stableSelector(el)
+  if (!sel) return
+  const label = (el.value || el.textContent || "").trim().slice(0, 30)
+  upsertStep({ selector: sel, action: "click", label })
+}
+
+function upsertStep(step) {
+  const key = step.selector + ":" + step.action
+  const idx = macroSteps.map((s) => s.selector + ":" + s.action).lastIndexOf(key)
+  if (idx >= 0) macroSteps[idx] = step
+  else macroSteps.push(step)
+  chrome.storage.local.set({ macro: { steps: macroSteps, version: 1, learnedAt: Date.now() } })
+}
+
+function startRecording() {
+  macroRecording = true
+  macroSteps = []
+  chrome.storage.local.set({ recording: true, macro: { steps: [], version: 1, learnedAt: Date.now() }, replayCursor: 0 })
+  attachRecordListeners()
+  console.log("[ESIC Auto-Fill] 🎥 Recording started — fill the current employee manually")
+}
+
+function stopRecording() {
+  macroRecording = false
+  chrome.storage.local.set({ recording: false, macro: { steps: macroSteps, version: 1, learnedAt: Date.now() } })
+  console.log(`[ESIC Auto-Fill] ⏹ Recording stopped — ${macroSteps.length} steps saved`)
+}
+
+function clearMacro() {
+  macroSteps = []
+  macroRecording = false
+  chrome.storage.local.set({ recording: false, macro: null, replayCursor: 0, lastReplayIndex: -1 })
+  console.log("[ESIC Auto-Fill] 🗑 Macro cleared")
+}
+
+// Replay recorded value-steps for the current page. Navigation buttons
+// (Submit/Continue/Save) are left to the live-form auto-clicker to avoid
+// double-submit; we replay field-sets + non-nav clicks (Search, Upload
+// Photo, etc.). Cursor persists across PostBack reloads and resets per IP.
+async function replayMacro() {
+  const data = await chrome.storage.local.get(["queue", "currentIndex", "macro", "replayCursor", "lastReplayIndex"])
+  if (!data.macro || !Array.isArray(data.macro.steps) || !data.macro.steps.length) return { acted: 0, reason: "no macro" }
+  if (!data.queue || !data.queue.length) return { acted: 0, reason: "no queue" }
+  const item = data.queue[data.currentIndex]
+  if (!item) return { acted: 0, reason: "no item" }
+
+  // Reset the cursor when moving to a new employee so the macro replays
+  // from the start for each IP.
+  let cursor = data.replayCursor || 0
+  if (data.lastReplayIndex !== data.currentIndex) {
+    cursor = 0
+  }
+
+  const norm = item.normalized || {}
+  const steps = data.macro.steps
+  let acted = 0
+  for (let i = cursor; i < steps.length; i++) {
+    const step = steps[i]
+    const el = document.querySelector(step.selector)
+    if (!el) continue // not on this page — skip
+    if (!isVisible(el) || el.disabled) continue
+    if (step.action === "set") {
+      const val = step.column ? norm[step.column] : step.value
+      if (val != null && String(val) !== "" && el.value !== String(val)) {
+        setValueOnEl(el, String(val))
+        acted++
+      }
+    } else if (step.action === "click") {
+      if (/submit|continue|save|next|proceed/i.test(step.label || "")) continue
+      el.click()
+      acted++
+      await sleep(1200) // let PostBack/AJAX settle
+    }
+    cursor = i + 1
+  }
+  await chrome.storage.local.set({ replayCursor: cursor, lastReplayIndex: data.currentIndex })
+  return { acted, reason: `replayed ${acted} step(s)` }
+}
+
 // ─── Listen for messages from popup ────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === "fillPage") {
@@ -1251,6 +1450,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({ currentPage: detectPage() })
     return false
   }
+  if (msg.action === "startRecording") {
+    startRecording()
+    sendResponse({ ok: true, steps: macroSteps.length })
+    return false
+  }
+  if (msg.action === "stopRecording") {
+    stopRecording()
+    sendResponse({ ok: true, steps: macroSteps.length })
+    return false
+  }
+  if (msg.action === "clearMacro") {
+    clearMacro()
+    sendResponse({ ok: true })
+    return false
+  }
+  if (msg.action === "replayMacro") {
+    replayMacro().then((r) => sendResponse(r))
+    return true
+  }
 })
 
 // ─── Auto-fill on page load (with retry for AJAX dropdowns) ─────────
@@ -1258,11 +1476,19 @@ let autoFillRetries = 0
 const MAX_AUTO_RETRIES = 3
 
 async function autoFill() {
-  const data = await chrome.storage.local.get(["queue", "currentIndex"])
+  const data = await chrome.storage.local.get(["queue", "currentIndex", "macro", "useMacro"])
   if (!data.queue || data.queue.length === 0) return
 
   const page = detectPage()
   if (page === "unknown") return
+
+  // If a recorded macro is enabled, replay it for this page (field-sets +
+  // non-navigation clicks only; Submit/Continue/Save are still handled by
+  // the live-form auto-clicker to avoid double-submit).
+  if (data.useMacro && data.macro && Array.isArray(data.macro.steps) && data.macro.steps.length) {
+    console.log("[ESIC Auto-Fill] Replaying recorded macro…")
+    await replayMacro()
+  }
 
   console.log(`[ESIC Auto-Fill] Auto-filling page: ${page} (attempt ${autoFillRetries + 1})`)
   const result = await fillPage()
@@ -1288,8 +1514,21 @@ setTimeout(autoFill, 5000)
 
 // ─── Live-form mode: flag <html> so the dialog patch auto-accepts confirms ─
 (async () => {
-  const { autoClickMode } = await chrome.storage.local.get(["autoClickMode"])
+  const { autoClickMode, recording, macro } = await chrome.storage.local.get([
+    "autoClickMode",
+    "recording",
+    "macro",
+  ])
   if (autoClickMode !== false) {
     document.documentElement.dataset.esicAutoConfirm = "1"
+  }
+  // Resume recording across PostBack reloads.
+  if (recording) {
+    macroSteps = (macro && macro.steps) || []
+    macroRecording = true
+    attachRecordListeners()
+    console.log(`[ESIC Auto-Fill] Resumed recording: ${macroSteps.length} steps`)
+  } else if (macro && Array.isArray(macro.steps)) {
+    macroSteps = macro.steps
   }
 })()
