@@ -52,3 +52,10 @@ prompt
 server.log
 # Skills directory
 /skills/
+# ESIC project runtime artifacts (never commit these)
+/db/*.db
+/db/*.db-journal
+/esicip.bundle
+/tool-results/
+# Dev server pid files
+.zscripts/*.pid

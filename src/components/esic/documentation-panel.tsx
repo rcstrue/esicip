@@ -26,16 +26,19 @@ import {
 } from "@/lib/esic/masters"
 import { FIELD_MAP, FIELDS_BY_PAGE, type PageId } from "@/lib/esic/field-map"
 
-const PAGE_LABELS: Record<PageId, string> = {
+/** Pages shown in the runner-flow docs (excludes the internal "aadhaar" page). */
+type DocPageId = Exclude<PageId, "aadhaar">
+
+const PAGE_LABELS: Record<DocPageId, string> = {
   entry: "1 · Entry",
   main: "2 · Main form",
   bank: "3 · Bank details",
   nominee: "4 · Nominee",
 }
 
-const PAGE_ORDER: PageId[] = ["entry", "main", "bank", "nominee"]
+const PAGE_ORDER: DocPageId[] = ["entry", "main", "bank", "nominee"]
 
-const PAGE_DESCRIPTIONS: Record<PageId, { title: string; aspx: string; steps: string[] }> = {
+const PAGE_DESCRIPTIONS: Record<DocPageId, { title: string; aspx: string; steps: string[] }> = {
   entry: {
     title: "Entry page",
     aspx: "1RegisteredEmployees.aspx",
