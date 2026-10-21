@@ -1,6 +1,6 @@
 # ESIC IP Auto-Fill — Chrome Extension
 
-A browser extension that auto-fills ESIC IP registration forms. **You** click Submit — the extension does all the typing.
+A browser extension that auto-fills ESIC IP registration forms **and auto-clicks Submit / Continue / Save** for you (live-form mode) — the whole IP registration runs as one unattended flow. You only pick the bank-document file.
 
 ## Why this is better than the Playwright runner
 
@@ -21,7 +21,7 @@ A browser extension that auto-fills ESIC IP registration forms. **You** click Su
    - Main form: fills name, father/husband, DOB, marital, gender, address, dispensary cascade, appointment date, declaration
    - Bank page: fills IFSC, account no, MICR, account type
    - Nominee page: fills nominee name, relation, share, family member
-4. **You review + click Submit** on each page
+4. **The extension auto-clicks Submit / Continue / Save** (~2 s after each fill) — pages chain automatically
 5. On the success page, the extension captures the IP Number
 6. Click "Next IP →" in the popup — repeat
 
@@ -36,6 +36,7 @@ C:\Users\SHAILESH PATEL\esic-extension\
 ├── popup.html
 ├── popup.js
 ├── content.js
+├── dialog-patch.js
 ├── background.js
 ├── icon.png
 └── README.md
@@ -62,9 +63,9 @@ C:\Users\SHAILESH PATEL\esic-extension\
 1. Log in to ESIC normally (https://portal.esic.gov.in)
 2. Navigate to Employee → Add Employee
 3. The extension **auto-fills the page** within 2 seconds
-4. Review the filled fields
-5. Click **Continue** / **Submit** / **Save** yourself
-6. The next page loads → extension auto-fills again
+4. The extension auto-fills the page, then auto-clicks **Continue / Submit / Save** for you (~2 s later)
+5. The next page loads → extension auto-fills again → auto-clicks → …
+6. On the bank page: pick the cheque/passbook file yourself; the extension auto-clicks **Submit** the moment you choose the file
 7. On the success page, the IP Number is captured automatically
 8. Click **"Next IP →"** in the popup to move to the next employee
 
@@ -72,7 +73,8 @@ C:\Users\SHAILESH PATEL\esic-extension\
 
 - ✅ **Auto-fills on page load** — no buttons to click for filling
 - ✅ **Handles PostBack cascades** — state → district → dispensary filled in sequence across page reloads
-- ✅ **You click Submit** — full control, no automation crashes
+- ✅ **Live-form mode** — auto-clicks Submit / Continue / Save + the dashboard OK / I Agree / Close popups one after another (toggle in the popup; ON by default)
+- ✅ **Confirm dialogs auto-accepted** — the "Are you sure?" prompts ESIC shows on Submit are auto-OK'd so the chain isn't blocked
 - ✅ **IP Number captured** from success page (3 fallback strategies)
 - ✅ **Results tracked** — see all completed IPs in the popup
 - ✅ **Export results.csv** — one click, opens in Excel

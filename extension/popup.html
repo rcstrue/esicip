@@ -54,6 +54,21 @@
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-row { display: flex; gap: 6px; }
     .btn-row .btn { margin-top: 0; }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 6px;
+      margin-top: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      color: #065f46;
+    }
+    .toggle-row input { margin: 0; cursor: pointer; }
+    .toggle-row.off { background: #f3f4f6; border-color: #e5e7eb; color: #6b7280; }
     .current-ip {
       background: white;
       border: 1px solid #e5e5e5;
@@ -147,6 +162,10 @@
     <div class="section">
       <h2>Actions</h2>
       <button class="btn btn-primary" id="fill-btn">Fill this page now</button>
+      <label class="toggle-row" id="autoclick-row" title="When ON, the extension auto-clicks Submit / Continue / Save (and the dashboard OK/I Agree/Close popups) one after another, so the whole IP registration runs as a live, unattended flow. Bank-document file selection is still manual.">
+        <input type="checkbox" id="autoclick-toggle" checked />
+        <span>🤖 Auto-click all buttons (live form)</span>
+      </label>
       <div class="btn-row" style="margin-top:6px;">
         <button class="btn btn-secondary" id="prev-btn">← Prev IP</button>
         <button class="btn btn-secondary" id="next-btn">Next IP →</button>

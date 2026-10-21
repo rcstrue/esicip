@@ -1,9 +1,14 @@
 {
   "manifest_version": 3,
   "name": "ESIC IP Auto-Fill",
-  "version": "1.0.6",
-  "description": "Auto-fills ESIC IP registration forms from a queue.json file. You just click Submit.",
-  "permissions": ["storage", "activeTab", "scripting", "tabs"],
+  "version": "1.0.7",
+  "description": "Auto-fills ESIC IP registration forms from queue.json and auto-clicks Submit/Continue/Save (live-form mode).",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
   "host_permissions": [
     "https://portal.esic.gov.in/*",
     "https://www.esic.in/*",
@@ -20,7 +25,21 @@
         "https://portal.esic.gov.in/*",
         "https://www.esic.in/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "dialog-patch.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://portal.esic.gov.in/*",
+        "https://www.esic.in/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle",
       "all_frames": true
     }

@@ -12,6 +12,7 @@ const EXTENSION_FILES = [
   "popup.html",
   "popup.js",
   "content.js",
+  "dialog-patch.js",
   "background.js",
   "icon.png",
   "README.md",

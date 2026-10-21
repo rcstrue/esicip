@@ -116,6 +116,36 @@ function clickElement(selectors) {
   return true
 }
 
+// ─── Helper: is an element visible & enabled? ──────────────────────
+function isVisible(el) {
+  if (!el) return false
+  if (el.disabled) return false
+  if (el.offsetParent === null && el.getClientRects().length === 0) return false
+  const rect = el.getBoundingClientRect()
+  if (rect.width === 0 && rect.height === 0) return false
+  const style = window.getComputedStyle(el)
+  if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false
+  return true
+}
+
+// ─── Helper: sleep ─────────────────────────────────────────────────
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
+// ─── Helper: click the first visible+enabled element matching any selector ─
+function clickFirstVisible(selectors, label) {
+  for (const sel of selectors) {
+    const el = document.querySelector(sel)
+    if (el && isVisible(el)) {
+      console.log(`[ESIC Auto-Fill] Auto-clicking ${label}: ${sel}`)
+      el.click()
+      return { clicked: true, reason: `auto-clicked ${label}`, selector: sel }
+    }
+  }
+  return { clicked: false, reason: `${label} button not visible` }
+}
+
 // ─── Helper: get select value/label ────────────────────────────────
 function getSelectValue(selectors) {
   const el = findField(selectors)
@@ -195,39 +225,42 @@ function detectPage() {
   return "unknown"
 }
 
-// ─── DASHBOARD: auto-dismiss modals + navigate to Add Employee ─────
-function handleDashboard() {
+// ─── DASHBOARD: auto-dismiss modals ONE-BY-ONE + navigate ───────────
+// PortalHome shows a stack of modal panels that appear SEQUENTIALLY — each
+// OK / I Agree / Close click triggers a PostBack that reveals the next.
+// We loop, re-scanning after each click, until no more popups are visible,
+// then navigate to Add Employee.
+async function handleDashboard() {
   const dismissed = []
 
-  // Dismiss common modal popups on the dashboard
-  if (findField(["#div1_close"])) {
-    clickElement(["#div1_close"])
-    dismissed.push("session warning")
-  }
-  if (findField(["#btnNo"])) {
-    clickElement(["#btnNo"])
-    dismissed.push("free offer popup")
-  }
-  const modalButtons = [
+  const popupSequence = [
+    { sel: "#div1_close", name: "session warning (X)" },
+    { sel: "#btnNo", name: "free-offer popup (No)" },
     { sel: "#btnpnlcolse", name: "I Agree (policy)" },
     { sel: "#btnpnlPwdcolse", name: "I Agree (password)" },
     { sel: "#btnpnlSanjeevanicolse", name: "Sanjeevani Close" },
     { sel: "#btnncsclose", name: "Registration Status OK" },
     { sel: "#BtnOK1", name: "OK" },
   ]
-  for (const btn of modalButtons) {
-    if (findField([btn.sel])) {
+
+  let guard = 0
+  while (guard++ < 30) {
+    let clicked = false
+    for (const btn of popupSequence) {
       const el = findField([btn.sel])
-      if (el && el.offsetParent !== null) {
-        clickElement([btn.sel])
+      if (el && isVisible(el)) {
+        console.log(`[ESIC Auto-Fill] Dashboard: auto-clicking ${btn.name}`)
+        el.click()
         dismissed.push(btn.name)
+        clicked = true
+        await sleep(900) // let the PostBack + next popup render
+        break
       }
     }
+    if (!clicked) break // dashboard is clear → go navigate
   }
 
-  // ─── Try to find and click "Add Employee" / "New Registration" link ───
-  // The dashboard uses <a> tags, <img> with onclick, or divs with onclick.
-  // Search for any clickable element with the right text.
+  // ─── Navigate to "Add Employee" / "New Registration" ────────────────
   const navKeywords = [
     "Add Employee",
     "Add New Employee",
@@ -239,7 +272,6 @@ function handleDashboard() {
   ]
 
   let navigated = false
-  // Search all clickable elements: <a>, <img>, <div>, <span>, <td> with onclick or role
   const clickables = document.querySelectorAll(
     'a, img[onclick], div[onclick], span[onclick], td[onclick], li[onclick], [role="button"], [role="menuitem"], [role="link"]',
   )
@@ -248,62 +280,55 @@ function handleDashboard() {
     if (!text) continue
     for (const keyword of navKeywords) {
       if (text.toLowerCase().includes(keyword.toLowerCase())) {
-        // Check if it's visible
         if (el.offsetParent !== null || el.getClientRects().length > 0) {
           console.log(`[ESIC Auto-Fill] Found nav link: "${text}" — clicking`)
           try {
             el.click()
             navigated = true
-            return {
-              type: "info",
-              message: `✓ Dismissed ${dismissed.length} popup(s) + clicked "${text}". Page should navigate to registration...`,
-            }
           } catch (e) {
             console.log(`[ESIC Auto-Fill] Click failed:`, e)
           }
-          break
+          return {
+            type: "info",
+            message: `✓ Dismissed ${dismissed.length} popup(s) + clicked "${text}". Navigating to registration…`,
+          }
         }
       }
     }
     if (navigated) break
   }
 
-  // ─── Also look for image-based navigation (ESIC uses image maps) ─────
+  // ─── Image-based navigation (ESIC uses image maps too) ─────────────
   if (!navigated) {
-    const navImages = document.querySelectorAll('img[src*="Employee" i], img[src*="Add" i], img[src*="Register" i], img[src*="ip" i], area[alt*="Employee" i], area[alt*="Add" i], area[alt*="Register" i]')
+    const navImages = document.querySelectorAll(
+      'img[src*="Employee" i], img[src*="Add" i], img[src*="Register" i], img[src*="ip" i], area[alt*="Employee" i], area[alt*="Add" i], area[alt*="Register" i]',
+    )
     for (const img of navImages) {
       if (img.offsetParent !== null || img.getClientRects().length > 0) {
         console.log(`[ESIC Auto-Fill] Found nav image: ${img.src || img.alt} — clicking`)
         try {
           img.click()
           navigated = true
-          return {
-            type: "info",
-            message: `✓ Dismissed ${dismissed.length} popup(s) + clicked nav image. Page should navigate...`,
-          }
         } catch (e) {
           console.log(`[ESIC Auto-Fill] Image click failed:`, e)
         }
-        break
+        return {
+          type: "info",
+          message: `✓ Dismissed ${dismissed.length} popup(s) + clicked nav image. Navigating…`,
+        }
       }
     }
   }
 
-  if (dismissed.length > 0 && !navigated) {
+  if (dismissed.length > 0) {
     return {
       type: "info",
-      message: `✓ Dismissed ${dismissed.length} popup(s). Could not auto-find "Add Employee" link. Click it manually in the left menu.`,
-    }
-  }
-  if (!navigated) {
-    return {
-      type: "info",
-      message: "📋 Dashboard. Click 'Employee' menu in the left sidebar → 'Add Employee' to start filling.",
+      message: `✓ Dismissed ${dismissed.length} dashboard popup(s). Could not auto-find "Add Employee" — click it in the left menu.`,
     }
   }
   return {
     type: "info",
-    message: "✓ Navigating to registration page...",
+    message: "📋 Dashboard. Click 'Employee' menu → 'Add Employee' to start filling.",
   }
 }
 
@@ -881,6 +906,185 @@ function extractIpNumber() {
   return ""
 }
 
+// ─── Per-page submit/continue/save button selectors ──────────────────
+function getPageSubmitSelector(page) {
+  switch (page) {
+    case "entry":
+      return [
+        "#ctl00_HomePageContent_btnContinue",
+        "input[type='submit'][value='Continue']",
+        "input[type='button'][value='Continue']",
+        "input[onclick*='Continue' i]",
+        "a[onclick*='Continue' i]",
+      ]
+    case "aadhaar":
+      return [
+        "#ctl00_HomePageContent_btnContinue",
+        "#ctl00_HomePageContent_btnSubmit",
+        "input[type='submit'][value='Continue']",
+        "input[type='submit'][value='Submit']",
+        "input[onclick*='Continue' i]",
+        "input[onclick*='Submit' i]",
+      ]
+    case "main":
+      return [
+        "#ctl00_HomePageContent_btnSubmit",
+        "#ctl00_HomePageContent_btnSubmitEmp",
+        "input[id*='btnSubmit' i]",
+        "input[type='image'][id*='Submit' i]",
+        "input[type='submit'][value='Submit']",
+        "input[type='button'][value='Submit']",
+        "input[onclick*='Submit' i]",
+        "a[onclick*='Submit' i]",
+      ]
+    case "bank":
+      return [
+        "#ctl00_HomePageContent_btnSubmit",
+        "input[id*='btnSubmit' i]",
+        "input[type='submit'][value='Submit']",
+        "input[type='button'][value='Submit']",
+        "input[onclick*='Submit' i]",
+        "a[onclick*='Submit' i]",
+      ]
+    case "nominee":
+      return [
+        "#ctl00_HomePageContent_btnSave",
+        "#ctl00_HomePageContent_btnSaveNominee",
+        "input[id*='btnSave' i]",
+        "input[type='submit'][value='Save']",
+        "input[type='button'][value='Save']",
+        "input[onclick*='Save' i]",
+        "a[onclick*='Save' i]",
+      ]
+    default:
+      return null
+  }
+}
+
+let bankDocWatcherSet = false
+// Bank page: the cheque/passbook file can't be auto-selected (browser
+// security). Once the user picks it, auto-click Submit.
+function watchBankDocThenSubmit() {
+  if (bankDocWatcherSet) return
+  bankDocWatcherSet = true
+  const fileEl = document.querySelector("#ctl00_HomePageContent_ctrlFISelectFile")
+  if (!fileEl) {
+    bankDocWatcherSet = false
+    return
+  }
+  console.log("[ESIC Auto-Fill] Bank page: waiting for document upload → will auto-click Submit")
+  const trySubmit = async () => {
+    if (!fileEl.value) return
+    await sleep(900)
+    const res = clickFirstVisible(getPageSubmitSelector("bank") || [], "bank-submit")
+    if (res.clicked) console.log("[ESIC Auto-Fill] Bank doc detected — auto-clicked Submit")
+  }
+  fileEl.addEventListener("change", trySubmit)
+  fileEl.addEventListener("input", trySubmit)
+}
+
+// ─── Bank page 2-step button flow: Search (PostBack) → Submit ────────
+async function autoClickBankFlow() {
+  const ifscEl = document.querySelector("#ctl00_HomePageContent_txtIFSCcode")
+  const bankNameEl = document.querySelector("#ctl00_HomePageContent_txt_Bank_Name_in_Records")
+  const bankLoaded = !!(bankNameEl && bankNameEl.value && bankNameEl.value.trim())
+  const fileEl = document.querySelector("#ctl00_HomePageContent_ctrlFISelectFile")
+  const accEl = document.querySelector("#ctl00_HomePageContent_txtacc_number")
+
+  // Step 1: IFSC entered but bank details not loaded → click Search.
+  if (ifscEl && ifscEl.value && !bankLoaded) {
+    const searchSelectors = [
+      "#ctl00_HomePageContent_btnSearch",
+      "input[id*='btnSearch' i]",
+      "input[type='submit'][value='Search']",
+      "input[type='button'][value='Search']",
+      "input[onclick*='Search' i]",
+      "img[onclick*='Search' i]",
+      "input[type='image'][alt*='Search' i]",
+    ]
+    await sleep(1200)
+    const res = clickFirstVisible(searchSelectors, "bank-search")
+    if (res.clicked) return res
+    return { clicked: false, reason: "bank Search button not found — click it manually" }
+  }
+
+  // Step 2: bank details loaded + account filled → need the doc.
+  if (bankLoaded && accEl && accEl.value) {
+    if (fileEl && !fileEl.value) {
+      watchBankDocThenSubmit()
+      return { clicked: false, reason: "upload bank doc — Submit will auto-click after" }
+    }
+    await sleep(1200)
+    return clickFirstVisible(getPageSubmitSelector("bank") || [], "bank-submit")
+  }
+
+  return { clicked: false, reason: "bank flow not ready" }
+}
+
+// ─── Live-form mode: auto-click this page's action buttons ────────────
+let autoClickFiredThisLoad = false
+async function maybeAutoClickSubmit(page, fillResult) {
+  if (!fillResult) return
+  if (autoClickFiredThisLoad) return
+
+  const settings = await chrome.storage.local.get(["autoClickMode"])
+  const autoClick = settings.autoClickMode !== false // default ON
+  if (!autoClick) return
+
+  // Flag the <html> tag so the MAIN-world dialog patch auto-accepts any
+  // "Are you sure?" confirm() that ESIC pops on Submit.
+  document.documentElement.dataset.esicAutoConfirm = "1"
+
+  // Bank page has its own 2-step Search→Submit flow.
+  if (page === "bank") {
+    autoClickFiredThisLoad = true
+    const res = await autoClickBankFlow()
+    if (res.clicked) {
+      chrome.runtime.sendMessage({
+        type: "pageChanged",
+        page,
+        fillResult: { type: "info", message: "🤖 " + res.reason },
+      })
+    }
+    return
+  }
+
+  // Skip when a reload/PostBack is imminent (the fill message says so).
+  const skipHints = ["reload", "PostBack", "may reload", "Loading districts", "Waiting for", "loading…", "did not load", "didn't load"]
+  const lower = (fillResult.message || "").toLowerCase()
+  if (fillResult.type === "info" && skipHints.some((h) => lower.includes(h.toLowerCase()))) {
+    return // let the reload happen, then re-run
+  }
+  if (fillResult.type !== "success" && fillResult.type !== "info") return
+
+  const selectors = getPageSubmitSelector(page)
+  if (!selectors) return
+
+  // Entry page: if a Validate button is visible, click it first.
+  if (page === "entry") {
+    const validateSelectors = [
+      "#ctl00_HomePageContent_btnValidate",
+      "input[type='submit'][value='Validate']",
+      "input[type='button'][value='Validate']",
+      "input[onclick*='Validate' i]",
+    ]
+    const v = clickFirstVisible(validateSelectors, "entry-validate")
+    if (v.clicked) await sleep(2200)
+  }
+
+  autoClickFiredThisLoad = true
+  // Give the user a beat to see the filled form before we click.
+  await sleep(1800)
+  const res = clickFirstVisible(selectors, page + "-submit")
+  if (res.clicked) {
+    chrome.runtime.sendMessage({
+      type: "pageChanged",
+      page,
+      fillResult: { type: "info", message: "🤖 " + res.reason },
+    })
+  }
+}
+
 // ─── Main fill function ────────────────────────────────────────────
 async function fillPage() {
   const data = await chrome.storage.local.get(["queue", "currentIndex"])
@@ -921,7 +1125,7 @@ async function fillPage() {
       fillResult = fillNominee(ipData)
       break
     case "dashboard":
-      fillResult = handleDashboard()
+      fillResult = await handleDashboard()
       break
     case "success":
       const ipNumber = extractIpNumber()
@@ -940,6 +1144,11 @@ async function fillPage() {
       break
     default:
       fillResult = { type: "info", message: "Not on a recognized ESIC page. Navigate to Add Employee or another registration page." }
+  }
+
+  // ─── Live-form mode: fire-and-forget auto-click of this page's submit ──
+  if (page !== "dashboard" && page !== "success" && page !== "unknown") {
+    maybeAutoClickSubmit(page, fillResult)
   }
 
   await chrome.storage.local.set({ currentPage: page, lastFillResult: fillResult })
@@ -992,3 +1201,11 @@ async function autoFill() {
 
 // Initial fill after 5 seconds (give AJAX time to start loading)
 setTimeout(autoFill, 5000)
+
+// ─── Live-form mode: flag <html> so the dialog patch auto-accepts confirms ─
+(async () => {
+  const { autoClickMode } = await chrome.storage.local.get(["autoClickMode"])
+  if (autoClickMode !== false) {
+    document.documentElement.dataset.esicAutoConfirm = "1"
+  }
+})()

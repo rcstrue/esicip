@@ -12,6 +12,7 @@ let state = {
   results: [],
   currentPage: "unknown",
   lastFillResult: null,
+  autoClickMode: true, // 🤖 live-form mode: auto-click Submit/Continue/Save + dashboard popups
 }
 
 // ─── Load state from chrome.storage on popup open ──────────────────
@@ -22,12 +23,14 @@ async function loadState() {
     "results",
     "currentPage",
     "lastFillResult",
+    "autoClickMode",
   ])
   state.queue = data.queue || []
   state.currentIndex = data.currentIndex || 0
   state.results = data.results || []
   state.currentPage = data.currentPage || "unknown"
   state.lastFillResult = data.lastFillResult || null
+  state.autoClickMode = data.autoClickMode !== false // default ON
   render()
 }
 
@@ -38,6 +41,7 @@ async function saveState() {
     results: state.results,
     currentPage: state.currentPage,
     lastFillResult: state.lastFillResult,
+    autoClickMode: state.autoClickMode,
   })
 }
 
@@ -74,6 +78,14 @@ function render() {
     if (myIdx < idx) dot.classList.add("done")
     else if (myIdx === idx) dot.classList.add("active")
   })
+
+  // 🤖 Auto-click toggle
+  const toggle = $("autoclick-toggle")
+  const row = $("autoclick-row")
+  if (toggle) {
+    toggle.checked = !!state.autoClickMode
+    if (row) row.classList.toggle("off", !state.autoClickMode)
+  }
 
   // Page status
   const pageNames = {
@@ -141,6 +153,15 @@ $("file-input").addEventListener("change", async (e) => {
 // ─── Fill current page ─────────────────────────────────────────────
 $("fill-btn").addEventListener("click", async () => {
   await sendMessageToTab({ action: "fillPage" })
+})
+
+// ─── 🤖 Auto-click all buttons (live form) toggle ──────────────────
+$("autoclick-toggle").addEventListener("change", async (e) => {
+  state.autoClickMode = e.target.checked
+  await saveState()
+  render()
+  // Re-trigger the current page fill so the auto-click kicks in immediately
+  if (state.autoClickMode) await sendMessageToTab({ action: "fillPage" })
 })
 
 // ─── Diagnose page (for debugging — dumps all fields) ──────────────
