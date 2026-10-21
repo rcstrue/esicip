@@ -195,22 +195,19 @@ function detectPage() {
   return "unknown"
 }
 
-// ─── DASHBOARD: auto-dismiss modal popups ──────────────────────────
+// ─── DASHBOARD: auto-dismiss modals + navigate to Add Employee ─────
 function handleDashboard() {
   const dismissed = []
 
   // Dismiss common modal popups on the dashboard
-  // "Either last logged-in session was not closed" → click X
   if (findField(["#div1_close"])) {
     clickElement(["#div1_close"])
     dismissed.push("session warning")
   }
-  // "Interested employers can register..." → click NO
   if (findField(["#btnNo"])) {
     clickElement(["#btnNo"])
     dismissed.push("free offer popup")
   }
-  // Various "I Agree" / "OK" / "Close" modals
   const modalButtons = [
     { sel: "#btnpnlcolse", name: "I Agree (policy)" },
     { sel: "#btnpnlPwdcolse", name: "I Agree (password)" },
@@ -220,7 +217,6 @@ function handleDashboard() {
   ]
   for (const btn of modalButtons) {
     if (findField([btn.sel])) {
-      // Only click if the button is visible (modal is showing)
       const el = findField([btn.sel])
       if (el && el.offsetParent !== null) {
         clickElement([btn.sel])
@@ -229,15 +225,85 @@ function handleDashboard() {
     }
   }
 
-  if (dismissed.length > 0) {
+  // ─── Try to find and click "Add Employee" / "New Registration" link ───
+  // The dashboard uses <a> tags, <img> with onclick, or divs with onclick.
+  // Search for any clickable element with the right text.
+  const navKeywords = [
+    "Add Employee",
+    "Add New Employee",
+    "New Registration",
+    "Register New IP",
+    "Register IP",
+    "New IP",
+    "Employee Registration",
+  ]
+
+  let navigated = false
+  // Search all clickable elements: <a>, <img>, <div>, <span>, <td> with onclick or role
+  const clickables = document.querySelectorAll(
+    'a, img[onclick], div[onclick], span[onclick], td[onclick], li[onclick], [role="button"], [role="menuitem"], [role="link"]',
+  )
+  for (const el of clickables) {
+    const text = (el.textContent || el.alt || el.title || "").trim()
+    if (!text) continue
+    for (const keyword of navKeywords) {
+      if (text.toLowerCase().includes(keyword.toLowerCase())) {
+        // Check if it's visible
+        if (el.offsetParent !== null || el.getClientRects().length > 0) {
+          console.log(`[ESIC Auto-Fill] Found nav link: "${text}" — clicking`)
+          try {
+            el.click()
+            navigated = true
+            return {
+              type: "info",
+              message: `✓ Dismissed ${dismissed.length} popup(s) + clicked "${text}". Page should navigate to registration...`,
+            }
+          } catch (e) {
+            console.log(`[ESIC Auto-Fill] Click failed:`, e)
+          }
+          break
+        }
+      }
+    }
+    if (navigated) break
+  }
+
+  // ─── Also look for image-based navigation (ESIC uses image maps) ─────
+  if (!navigated) {
+    const navImages = document.querySelectorAll('img[src*="Employee" i], img[src*="Add" i], img[src*="Register" i], img[src*="ip" i], area[alt*="Employee" i], area[alt*="Add" i], area[alt*="Register" i]')
+    for (const img of navImages) {
+      if (img.offsetParent !== null || img.getClientRects().length > 0) {
+        console.log(`[ESIC Auto-Fill] Found nav image: ${img.src || img.alt} — clicking`)
+        try {
+          img.click()
+          navigated = true
+          return {
+            type: "info",
+            message: `✓ Dismissed ${dismissed.length} popup(s) + clicked nav image. Page should navigate...`,
+          }
+        } catch (e) {
+          console.log(`[ESIC Auto-Fill] Image click failed:`, e)
+        }
+        break
+      }
+    }
+  }
+
+  if (dismissed.length > 0 && !navigated) {
     return {
       type: "info",
-      message: `✓ Dismissed ${dismissed.length} popup(s): ${dismissed.join(", ")}. Now navigate to Employee → Add Employee.`,
+      message: `✓ Dismissed ${dismissed.length} popup(s). Could not auto-find "Add Employee" link. Click it manually in the left menu.`,
+    }
+  }
+  if (!navigated) {
+    return {
+      type: "info",
+      message: "📋 Dashboard. Click 'Employee' menu in the left sidebar → 'Add Employee' to start filling.",
     }
   }
   return {
     type: "info",
-    message: "📋 Dashboard. Navigate to: Employee → Add Employee (or New Registration) to start filling.",
+    message: "✓ Navigating to registration page...",
   }
 }
 

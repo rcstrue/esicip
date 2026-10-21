@@ -160,12 +160,10 @@ $("diag-btn").addEventListener("click", async () => {
         document.querySelectorAll("input, select, textarea, button").forEach((el) => {
           if (el.type === "hidden") return
           const label = (() => {
-            // Try to find associated label
             if (el.id) {
               const lbl = document.querySelector(`label[for="${el.id}"]`)
               if (lbl) return lbl.textContent.trim()
             }
-            // Walk up to find nearby text
             let parent = el.closest("td, div, li")
             if (parent) {
               const prev = parent.previousElementSibling
@@ -185,11 +183,26 @@ $("diag-btn").addEventListener("click", async () => {
             options: el.tagName === "SELECT" ? Array.from(el.options).slice(0, 5).map(o => `${o.value}=${o.text}`) : [],
           })
         })
+        // ALSO collect clickable elements: <a>, <img>, divs with onclick
+        const clickables = []
+        document.querySelectorAll('a, img[onclick], div[onclick], span[onclick], td[onclick], li[onclick], [role="button"], [role="menuitem"], [role="link"], area').forEach((el) => {
+          const text = (el.textContent || el.alt || el.title || "").trim()
+          if (!text) return // skip empty
+          clickables.push({
+            tag: el.tagName,
+            id: el.id || "",
+            text: text.slice(0, 80),
+            href: el.href || el.src || "",
+            onclick: el.onclick ? "yes" : "",
+          })
+        })
         return {
           url: location.href,
           title: document.title,
           fieldCount: fields.length,
           fields: fields,
+          clickableCount: clickables.length,
+          clickables: clickables,
         }
       },
     })
@@ -216,9 +229,22 @@ $("diag-btn").addEventListener("click", async () => {
       }
       text += `\n=== END DIAGNOSTIC ===\n`
 
+      // Add clickable elements section
+      if (diag.clickables && diag.clickables.length > 0) {
+        text += `\n=== CLICKABLE ELEMENTS (${diag.clickableCount}) ===\n`
+        for (const c of diag.clickables.slice(0, 50)) {
+          text += `\n[${c.tag}]\n`
+          text += `  id: ${c.id || "(none)"}\n`
+          text += `  text: ${c.text}\n`
+          if (c.href) text += `  href/src: ${c.href}\n`
+          if (c.onclick) text += `  has onclick: yes\n`
+        }
+        text += `\n=== END CLICKABLE ===\n`
+      }
+
       // Copy to clipboard
       await navigator.clipboard.writeText(text)
-      alert(`✓ Page diagnostic copied to clipboard!\n\n${diag.fieldCount} fields found.\n\nPlease paste it (Ctrl+V) into our chat so I can fix the fill logic.`)
+      alert(`✓ Page diagnostic copied to clipboard!\n\n${diag.fieldCount} fields + ${diag.clickableCount || 0} clickable elements found.\n\nPlease paste it (Ctrl+V) into our chat so I can fix the fill logic.`)
       console.log("[ESIC Auto-Fill] Diagnostic:", text)
     }
   } catch (err) {
