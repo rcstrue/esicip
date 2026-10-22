@@ -152,15 +152,16 @@
     <div id="load-summary" class="status-msg status-info" style="display:none;"></div>
   </div>
 
+  <!-- Validation Results (shown whenever an xlsx/csv was loaded, even if 0 ready) -->
+  <div class="section" id="validation-section" style="display:none;">
+    <h2>Validation Results</h2>
+    <div id="v-summary" class="status-msg status-info" style="margin-bottom:6px;"></div>
+    <div id="v-filters" style="margin-bottom:4px;"></div>
+    <div class="vsection" id="v-list"></div>
+  </div>
+
   <!-- Queue loaded - main view -->
   <div id="main-view" style="display:none;">
-    <div class="section" id="validation-section" style="display:none;">
-      <h2>Validation Results</h2>
-      <div id="v-summary" class="status-msg status-info" style="margin-bottom:6px;"></div>
-      <div id="v-filters" style="margin-bottom:4px;"></div>
-      <div class="vsection" id="v-list"></div>
-    </div>
-
     <div class="section">
       <h2>Current IP</h2>
       <div class="current-ip" id="current-ip-box">

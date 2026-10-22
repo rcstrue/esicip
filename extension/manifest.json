@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ESIC IP Auto-Fill",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Auto-fills ESIC IP forms, auto-clicks Submit/Continue/Save, macro recording, loads .xlsx directly, auto-updates from GitHub.",
   "permissions": [
     "storage",

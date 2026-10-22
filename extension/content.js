@@ -14,6 +14,7 @@ function setValue(selector, value) {
   else el.value = value
   el.dispatchEvent(new Event("input", { bubbles: true }))
   el.dispatchEvent(new Event("change", { bubbles: true }))
+  el.dispatchEvent(new Event("keyup", { bubbles: true }))
   el.dispatchEvent(new Event("blur", { bubbles: true }))
   return true
 }
@@ -36,6 +37,7 @@ function setFieldValue(selectors, value) {
   else el.value = value
   el.dispatchEvent(new Event("input", { bubbles: true }))
   el.dispatchEvent(new Event("change", { bubbles: true }))
+  el.dispatchEvent(new Event("keyup", { bubbles: true }))
   el.dispatchEvent(new Event("blur", { bubbles: true }))
   return true
 }
@@ -74,6 +76,7 @@ function setValueOnEl(el, value) {
   else el.value = value
   el.dispatchEvent(new Event("input", { bubbles: true }))
   el.dispatchEvent(new Event("change", { bubbles: true }))
+  el.dispatchEvent(new Event("keyup", { bubbles: true }))
   el.dispatchEvent(new Event("blur", { bubbles: true }))
   return true
 }
@@ -278,7 +281,7 @@ async function handleDashboard() {
         el.click()
         dismissed.push(btn.name)
         clicked = true
-        await sleep(900) // let the PostBack + next popup render
+        await sleep(400) // let the PostBack + next popup render
         break
       }
     }
@@ -1159,7 +1162,7 @@ async function autoClickBankFlow() {
       "img[onclick*='Search' i]",
       "input[type='image'][alt*='Search' i]",
     ]
-    await sleep(1200)
+    await sleep(600)
     const res = clickFirstVisible(searchSelectors, "bank-search")
     if (res.clicked) return res
     return { clicked: false, reason: "bank Search button not found — click it manually" }
@@ -1171,7 +1174,7 @@ async function autoClickBankFlow() {
       watchBankDocThenSubmit()
       return { clicked: false, reason: "upload bank doc — Submit will auto-click after" }
     }
-    await sleep(1200)
+    await sleep(600)
     return clickFirstVisible(getPageSubmitSelector("bank") || [], "bank-submit")
   }
 
@@ -1226,7 +1229,7 @@ async function maybeAutoClickSubmit(page, fillResult) {
       "input[onclick*='Validate' i]",
     ]
     const v = clickFirstVisible(validateSelectors, "entry-validate")
-    if (v.clicked) await sleep(2200)
+    if (v.clicked) await sleep(1000)
   }
 
   autoClickFiredThisLoad = true
@@ -1480,7 +1483,7 @@ async function replayMacro() {
       if (/submit|continue|save|next|proceed/i.test(step.label || "")) continue
       el.click()
       acted++
-      await sleep(1200) // let PostBack/AJAX settle
+      await sleep(500) // let PostBack/AJAX settle
     }
     cursor = i + 1
   }
@@ -1551,14 +1554,14 @@ async function autoFill() {
   ) {
     autoFillRetries++
     console.log(`[ESIC Auto-Fill] Retrying in 5 seconds... (${autoFillRetries}/${MAX_AUTO_RETRIES})`)
-    setTimeout(autoFill, 5000)
+    setTimeout(autoFill, 1500)
   } else {
     autoFillRetries = 0
   }
 }
 
 // Initial fill after 5 seconds (give AJAX time to start loading)
-setTimeout(autoFill, 5000)
+setTimeout(autoFill, 1500)
 
 // ─── Live-form mode: flag <html> so the dialog patch auto-accepts confirms ─
 (async () => {

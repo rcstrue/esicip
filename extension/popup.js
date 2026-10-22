@@ -325,12 +325,18 @@ $("file-input").addEventListener("change", async (e) => {
     state.validationFilter = "all"
 
     if (!items || items.length === 0) {
-      const s = validationSummary
-      throw new Error(
-        s
-          ? "No ready/warning rows (0 ready, " + s.error + " error). Fix the issues in the file and reload."
-          : "No items to process."
-      )
+      state.queue = []
+      state.currentIndex = 0
+      state.results = []
+      state.currentPage = "unknown"
+      state.lastFillResult = null
+      await saveState()
+      render()
+      if (summary && validationSummary) {
+        summary.className = "status-msg status-error"
+        summary.textContent = "0 ready — " + validationSummary.error + " error(s), " + validationSummary.warning + " warning(s). See ↓ Validation Results below for exactly which row/column is wrong."
+      }
+      return
     }
     state.queue = items
     state.currentIndex = 0

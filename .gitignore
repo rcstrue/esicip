@@ -59,3 +59,11 @@ server.log
 /tool-results/
 # Dev server pid files
 .zscripts/*.pid
+
+# removed extra folders (keep out of the repo)
+/esicip-repo/
+/examples/
+/mini-services/
+/download/
+/runner/
+/esicip.bundle
