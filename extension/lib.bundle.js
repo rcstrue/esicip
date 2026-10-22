@@ -40559,6 +40559,15 @@ var FIELD_MAP = [
     triggersPostBack: true
   },
   {
+    csvColumn: "PresentDistrictCode",
+    page: "main",
+    controlName: "ctl00$HomePageContent$hiddenpresentdistrict",
+    controlId: "ctl00_HomePageContent_hiddenpresentdistrict",
+    type: "numeric",
+    portalLabel: "Present District Code (optional, for disambiguation)",
+    runnerNote: "Optional. Some district names are duplicated within a state."
+  },
+  {
     csvColumn: "MobileNo",
     page: "main",
     controlName: "ctl00$HomePageContent$ctrlTextPresentMobileNo",
@@ -40583,8 +40592,76 @@ var FIELD_MAP = [
     controlName: "ctl00$HomePageContent$chkboxCopyPresentAddress",
     controlId: "ctl00_HomePageContent_chkboxCopyPresentAddress",
     type: "checkbox",
-    portalLabel: "Copy Present Address to Permanent Address",
-    runnerNote: "Tick this to avoid filling permanent address fields. Recommended for bulk runs."
+    portalLabel: "Copy Present Address to Permanent Address (DO NOT USE)",
+    runnerNote: "DO NOT use this checkbox. The extension fills permanent fields explicitly from the Permanent* columns below. Kept for backward-compat only; always treated as 'No'."
+  },
+  {
+    csvColumn: "PermanentAddress",
+    page: "main",
+    controlName: "ctl00$HomePageContent$ctrlTextPermanentAddress1",
+    controlId: "ctl00_HomePageContent_ctrlTextPermanentAddress1",
+    type: "text",
+    maxLength: 50,
+    required: true,
+    portalLabel: "Permanent Address Line 1"
+  },
+  {
+    csvColumn: "PermanentAddress2",
+    page: "main",
+    controlName: "ctl00$HomePageContent$ctrlTextPermanentAddress2",
+    controlId: "ctl00_HomePageContent_ctrlTextPermanentAddress2",
+    type: "text",
+    maxLength: 50,
+    portalLabel: "Permanent Address Line 2"
+  },
+  {
+    csvColumn: "PermanentAddress3",
+    page: "main",
+    controlName: "ctl00$HomePageContent$ctrlTextPermanentAddress3",
+    controlId: "ctl00_HomePageContent_ctrlTextPermanentAddress3",
+    type: "text",
+    maxLength: 50,
+    portalLabel: "Permanent Address Line 3"
+  },
+  {
+    csvColumn: "PermanentPinCode",
+    page: "main",
+    controlName: "ctl00$HomePageContent$ctrlTextPermanentPinCode",
+    controlId: "ctl00_HomePageContent_ctrlTextPermanentPinCode",
+    type: "numeric",
+    maxLength: 6,
+    required: true,
+    portalLabel: "Permanent Pin Code"
+  },
+  {
+    csvColumn: "PermanentState",
+    page: "main",
+    controlName: "ctl00$HomePageContent$ctrlTextPermanentState",
+    controlId: "ctl00_HomePageContent_ctrlTextPermanentState",
+    type: "select",
+    required: true,
+    portalLabel: "Permanent State",
+    runnerNote: "Set value to the state NAME (portal spelling). onchange fires selectPermanentStates() which PostBacks to load districts.",
+    triggersPostBack: true
+  },
+  {
+    csvColumn: "PermanentDistrict",
+    page: "main",
+    controlName: "ctl00$HomePageContent$ctrlTextPermanentDistrict",
+    controlId: "ctl00_HomePageContent_ctrlTextPermanentDistrict",
+    type: "select",
+    required: true,
+    portalLabel: "Permanent District",
+    runnerNote: "Wait for permanent-state PostBack, then set district by name. Codes are state-specific and loaded server-side.",
+    triggersPostBack: true
+  },
+  {
+    csvColumn: "PermanentDistrictCode",
+    page: "main",
+    controlName: "ctl00$HomePageContent$hiddenpermenantdistrict",
+    controlId: "ctl00_HomePageContent_hiddenpermenantdistrict",
+    type: "numeric",
+    portalLabel: "Permanent District Code (optional, for disambiguation)"
   },
   {
     csvColumn: "DispensaryType",
@@ -40629,6 +40706,69 @@ var FIELD_MAP = [
     portalLabel: "Dispensary Name",
     runnerNote: "Wait for district PostBack, then select dispensary by visible label (codes are dynamic). Triggers PostBack.",
     triggersPostBack: true
+  },
+  {
+    csvColumn: "DispensaryId",
+    page: "main",
+    controlName: "ctl00$HomePageContent$ctrlTextDispensary",
+    controlId: "ctl00_HomePageContent_ctrlTextDispensary",
+    type: "numeric",
+    required: true,
+    portalLabel: "Employee Dispensary ID",
+    runnerNote: "Numeric dispensary ID (e.g. 1876). Options have DUPLICATE text (e.g. 1877 & 3417 both 'D 32 Amraiwadi'). Match by ID when given; if a name matches >1 option, STOP and ask -- never guess."
+  },
+  {
+    csvColumn: "DependendantDispensaryType",
+    page: "main",
+    controlName: "ctl00$HomePageContent$ctrlRBDependantDispensaryIMP",
+    controlId: "ctl00_HomePageContent_ctrlRBDependantDispensaryIMP",
+    type: "radio",
+    required: true,
+    portalLabel: "Dependant Dispensary Type",
+    runnerNote: "Values: Dispensary (_0, default, no postback) | IMP (_1, postback) | EMud (_2, postback)."
+  },
+  {
+    csvColumn: "DependendantDispensaryState",
+    page: "main",
+    controlName: "ctl00$HomePageContent$ddldependantDispensaryState",
+    controlId: "ctl00_HomePageContent_ddldependantDispensaryState",
+    type: "select",
+    required: true,
+    portalLabel: "Dependant Dispensary State",
+    runnerNote: "NUMERIC code (e.g. 29 for Gujarat) -- dispensary state selects use codes, unlike present/permanent state which use names.",
+    triggersPostBack: true
+  },
+  {
+    csvColumn: "DependendantDispensaryDistrict",
+    page: "main",
+    controlName: "ctl00$HomePageContent$ddldependantDispensaryDistrict",
+    controlId: "ctl00_HomePageContent_ddldependantDispensaryDistrict",
+    type: "select",
+    required: true,
+    portalLabel: "Dependant Dispensary District",
+    runnerNote: "Wait for state PostBack, then set district by name. Triggers PostBack.",
+    triggersPostBack: true
+  },
+  {
+    csvColumn: "DependendantDispensaryName",
+    page: "main",
+    controlName: "ctl00$HomePageContent$ddldependantdispensary",
+    controlId: "ctl00_HomePageContent_ddldependantdispensary",
+    type: "select",
+    required: true,
+    portalLabel: "Dependant Dispensary Name",
+    runnerNote: "Numeric ID options. Wait for state+district postbacks to populate. Triggers PostBack on select.",
+    triggersPostBack: true
+  },
+  {
+    csvColumn: "DependendantDispensaryId",
+    page: "main",
+    controlName: "ctl00$HomePageContent$ddldependantdispensary",
+    controlId: "ctl00_HomePageContent_ddldependantdispensary",
+    type: "numeric",
+    required: true,
+    portalLabel: "Dependant Dispensary ID",
+    runnerNote: "Numeric ID; match by ID (duplicate text exists). Never guess on ambiguity."
   },
   {
     csvColumn: "AppointmentDate",
@@ -40915,14 +41055,27 @@ function templateCSV() {
       PresentAddress3: "",
       PresentState: "Gujarat",
       PresentDistrict: "Surat",
+      PresentDistrictCode: "398",
       PinCode: "395007",
       MobileNo: "9898319329",
       Email: "",
-      PermanentAddress: "",
+      PermanentAddress: "B-104,XYZ Apartments,Vesu",
+      PermanentAddress2: "",
+      PermanentAddress3: "",
+      PermanentPinCode: "395007",
+      PermanentState: "Gujarat",
+      PermanentDistrict: "Surat",
+      PermanentDistrictCode: "398",
       DispensaryType: "Dispensary",
       DispensaryState: "Gujarat",
       DispensaryDistrict: "Surat",
       DispensaryName: "Dindoli Dispensary",
+      DispensaryId: "1876",
+      DependendantDispensaryType: "Dispensary",
+      DependendantDispensaryState: "Gujarat",
+      DependendantDispensaryDistrict: "Surat",
+      DependendantDispensaryName: "Dindoli Dispensary",
+      DependendantDispensaryId: "1876",
       AppointmentDate: "15/10/2026",
       SMSLanguage: "Hindi",
       IFSCCode: "UBIN0567663",
@@ -40950,14 +41103,27 @@ function templateCSV() {
       PresentAddress3: "",
       PresentState: "Maharashtra",
       PresentDistrict: "Mumbai",
+      PresentDistrictCode: "",
       PinCode: "400001",
       MobileNo: "9876543210",
       Email: "",
-      PermanentAddress: "",
+      PermanentAddress: "12,Shanti Society,Mumbai",
+      PermanentAddress2: "",
+      PermanentAddress3: "",
+      PermanentPinCode: "400001",
+      PermanentState: "Maharashtra",
+      PermanentDistrict: "Mumbai",
+      PermanentDistrictCode: "",
       DispensaryType: "Dispensary",
       DispensaryState: "Maharashtra",
       DispensaryDistrict: "Mumbai",
       DispensaryName: "Andheri Dispensary",
+      DispensaryId: "",
+      DependendantDispensaryType: "Dispensary",
+      DependendantDispensaryState: "Maharashtra",
+      DependendantDispensaryDistrict: "Mumbai",
+      DependendantDispensaryName: "Andheri Dispensary",
+      DependendantDispensaryId: "",
       AppointmentDate: "01/11/2026",
       SMSLanguage: "English",
       IFSCCode: "HDFC0001234",
@@ -41031,7 +41197,22 @@ var STATE_CODES = {
   "19": "Uttaranchal",
   "22": "West Bengal"
 };
-var STATE_NAME_TO_CODE = Object.fromEntries(Object.entries(STATE_CODES).map(([code, name]) => [name.toLowerCase(), code]));
+var STATE_NAME_TO_CODE = {
+  ...Object.fromEntries(Object.entries(STATE_CODES).map(([code, name]) => [name.toLowerCase(), code])),
+  chattishgarh: "27",
+  pondicherry: "12",
+  "jammu & kashmir": "2"
+};
+var STATE_PORTAL_SPELLINGS = {
+  chhattisgarh: "Chattishgarh",
+  puducherry: "Pondicherry",
+  "jammu and kashmir": "Jammu & Kashmir",
+  "andaman and nicobar": "Andaman and Nicobar"
+};
+function toPortalStateSpelling(name) {
+  const k = (name || "").trim().toLowerCase();
+  return STATE_PORTAL_SPELLINGS[k] ?? name;
+}
 var RELATION_CODES = {
   "1": "Spouse",
   "2": "Minor dependant son",
@@ -41332,15 +41513,38 @@ function validateRow(rowIndex, raw) {
       message: `PresentState '${presentStateRaw}' not recognized. Use state names like Gujarat, Maharashtra, etc.`
     });
   }
-  normalized.PresentState = presentStateRaw;
+  normalized.PresentState = toPortalStateSpelling(presentStateRaw);
+  normalized.PresentDistrictCode = get("PresentDistrictCode");
   if (!get("PresentDistrict")) {
     issues.push({ column: "PresentDistrict", severity: "error", message: "PresentDistrict is required" });
   }
   normalized.PresentDistrict = get("PresentDistrict");
+  normalized.CopyPresentToPermanent = "No";
   const permanentAddress = get("PermanentAddress");
-  const copyFlag = permanentAddress ? "No" : "Yes";
-  normalized.CopyPresentToPermanent = copyFlag;
+  if (!permanentAddress) {
+    issues.push({ column: "PermanentAddress", severity: "error", message: "PermanentAddress is required (the Copy checkbox is not used)" });
+  }
   normalized.PermanentAddress = permanentAddress;
+  normalized.PermanentAddress2 = get("PermanentAddress2");
+  normalized.PermanentAddress3 = get("PermanentAddress3");
+  const permPin = get("PermanentPinCode");
+  if (!permPin) {
+    issues.push({ column: "PermanentPinCode", severity: "error", message: "PermanentPinCode is required" });
+  } else if (!PIN_REGEX.test(permPin)) {
+    issues.push({ column: "PermanentPinCode", severity: "error", message: "PermanentPinCode must be 6 digits" });
+  }
+  normalized.PermanentPinCode = permPin;
+  const permanentStateRaw = get("PermanentState");
+  const permanentStateCode = STATE_NAME_TO_CODE[permanentStateRaw.toLowerCase()];
+  if (!permanentStateCode) {
+    issues.push({ column: "PermanentState", severity: "error", message: `PermanentState '${permanentStateRaw}' not recognized. Use state names like Gujarat, Maharashtra, etc.` });
+  }
+  normalized.PermanentState = toPortalStateSpelling(permanentStateRaw);
+  if (!get("PermanentDistrict")) {
+    issues.push({ column: "PermanentDistrict", severity: "error", message: "PermanentDistrict is required" });
+  }
+  normalized.PermanentDistrict = get("PermanentDistrict");
+  normalized.PermanentDistrictCode = get("PermanentDistrictCode");
   const dispensaryType = get("DispensaryType") || "Dispensary";
   if (!["Dispensary", "IMP", "EMud"].includes(dispensaryType)) {
     issues.push({
@@ -41368,6 +41572,33 @@ function validateRow(rowIndex, raw) {
     issues.push({ column: "DispensaryName", severity: "error", message: "DispensaryName is required" });
   }
   normalized.DispensaryName = get("DispensaryName");
+  if (!get("DispensaryId")) {
+    issues.push({ column: "DispensaryId", severity: "error", message: "DispensaryId is required (dispensary options have duplicate text — match by numeric ID)" });
+  }
+  normalized.DispensaryId = get("DispensaryId");
+  const depDispType = get("DependendantDispensaryType") || "Dispensary";
+  if (!["Dispensary", "IMP", "EMud"].includes(depDispType)) {
+    issues.push({ column: "DependendantDispensaryType", severity: "error", message: `DependendantDispensaryType must be 'Dispensary', 'IMP', or 'EMud' (got '${depDispType}')` });
+  }
+  normalized.DependendantDispensaryType = depDispType;
+  const depDispStateRaw = get("DependendantDispensaryState");
+  const depDispStateCode = STATE_NAME_TO_CODE[depDispStateRaw.toLowerCase()];
+  if (!depDispStateCode) {
+    issues.push({ column: "DependendantDispensaryState", severity: "error", message: `DependendantDispensaryState '${depDispStateRaw}' not recognized` });
+  }
+  normalized.DependendantDispensaryState = depDispStateCode ?? depDispStateRaw;
+  if (!get("DependendantDispensaryDistrict")) {
+    issues.push({ column: "DependendantDispensaryDistrict", severity: "error", message: "DependendantDispensaryDistrict is required" });
+  }
+  normalized.DependendantDispensaryDistrict = get("DependendantDispensaryDistrict");
+  if (!get("DependendantDispensaryName")) {
+    issues.push({ column: "DependendantDispensaryName", severity: "error", message: "DependendantDispensaryName is required" });
+  }
+  normalized.DependendantDispensaryName = get("DependendantDispensaryName");
+  if (!get("DependendantDispensaryId")) {
+    issues.push({ column: "DependendantDispensaryId", severity: "error", message: "DependendantDispensaryId is required (duplicate text — match by numeric ID)" });
+  }
+  normalized.DependendantDispensaryId = get("DependendantDispensaryId");
   const doaErr = validateDate(get("AppointmentDate"), "AppointmentDate", {
     required: true,
     notFuture: false

@@ -22,6 +22,7 @@ import {
   RELATION_ACCEPTED_LABELS,
   RELATION_NAME_TO_CODE,
   STATE_NAME_TO_CODE,
+  toPortalStateSpelling,
 } from "./masters"
 
 export type IssueSeverity = "error" | "warning"
@@ -300,7 +301,8 @@ export function validateRow(rowIndex: number, raw: Record<string, string>): Norm
       message: `PresentState '${presentStateRaw}' not recognized. Use state names like Gujarat, Maharashtra, etc.`,
     })
   }
-  normalized.PresentState = presentStateRaw // label — matches the live select's value
+  normalized.PresentState = toPortalStateSpelling(presentStateRaw) // portal spelling — matches the live select's value
+  normalized.PresentDistrictCode = get("PresentDistrictCode") // optional numeric code for disambiguation
 
   // Present District — label kept as-is (codes are state-specific, loaded at runtime by portal)
   if (!get("PresentDistrict")) {
@@ -308,11 +310,39 @@ export function validateRow(rowIndex: number, raw: Record<string, string>): Norm
   }
   normalized.PresentDistrict = get("PresentDistrict")
 
-  // CopyPresentToPermanent — defaults to Yes if Permanent address not provided
+  // CopyPresentToPermanent — DO NOT USE the checkbox (see field-map note).
+  // The extension fills permanent fields explicitly. Permanent address is MANDATORY.
+  normalized.CopyPresentToPermanent = "No"
+
   const permanentAddress = get("PermanentAddress")
-  const copyFlag = (permanentAddress ? "No" : "Yes")
-  normalized.CopyPresentToPermanent = copyFlag
+  if (!permanentAddress) {
+    issues.push({ column: "PermanentAddress", severity: "error", message: "PermanentAddress is required (the Copy checkbox is not used)" })
+  }
   normalized.PermanentAddress = permanentAddress
+  normalized.PermanentAddress2 = get("PermanentAddress2")
+  normalized.PermanentAddress3 = get("PermanentAddress3")
+
+  const permPin = get("PermanentPinCode")
+  if (!permPin) {
+    issues.push({ column: "PermanentPinCode", severity: "error", message: "PermanentPinCode is required" })
+  } else if (!PIN_REGEX.test(permPin)) {
+    issues.push({ column: "PermanentPinCode", severity: "error", message: "PermanentPinCode must be 6 digits" })
+  }
+  normalized.PermanentPinCode = permPin
+
+  // Permanent State — same NAME-based select as Present; use portal spelling.
+  const permanentStateRaw = get("PermanentState")
+  const permanentStateCode = STATE_NAME_TO_CODE[permanentStateRaw.toLowerCase()]
+  if (!permanentStateCode) {
+    issues.push({ column: "PermanentState", severity: "error", message: `PermanentState '${permanentStateRaw}' not recognized. Use state names like Gujarat, Maharashtra, etc.` })
+  }
+  normalized.PermanentState = toPortalStateSpelling(permanentStateRaw)
+
+  if (!get("PermanentDistrict")) {
+    issues.push({ column: "PermanentDistrict", severity: "error", message: "PermanentDistrict is required" })
+  }
+  normalized.PermanentDistrict = get("PermanentDistrict")
+  normalized.PermanentDistrictCode = get("PermanentDistrictCode")
 
   // ─── Dispensary block ──────────────────────────────────────────────────
   const dispensaryType = get("DispensaryType") || "Dispensary"
@@ -345,6 +375,40 @@ export function validateRow(rowIndex: number, raw: Record<string, string>): Norm
     issues.push({ column: "DispensaryName", severity: "error", message: "DispensaryName is required" })
   }
   normalized.DispensaryName = get("DispensaryName")
+
+  if (!get("DispensaryId")) {
+    issues.push({ column: "DispensaryId", severity: "error", message: "DispensaryId is required (dispensary options have duplicate text — match by numeric ID)" })
+  }
+  normalized.DispensaryId = get("DispensaryId")
+
+  // ─── Dependendant dispensary block (MANDATORY) ──────────────────────
+  const depDispType = get("DependendantDispensaryType") || "Dispensary"
+  if (!["Dispensary", "IMP", "EMud"].includes(depDispType)) {
+    issues.push({ column: "DependendantDispensaryType", severity: "error", message: `DependendantDispensaryType must be 'Dispensary', 'IMP', or 'EMud' (got '${depDispType}')` })
+  }
+  normalized.DependendantDispensaryType = depDispType
+
+  const depDispStateRaw = get("DependendantDispensaryState")
+  const depDispStateCode = STATE_NAME_TO_CODE[depDispStateRaw.toLowerCase()]
+  if (!depDispStateCode) {
+    issues.push({ column: "DependendantDispensaryState", severity: "error", message: `DependendantDispensaryState '${depDispStateRaw}' not recognized` })
+  }
+  normalized.DependendantDispensaryState = depDispStateCode ?? depDispStateRaw
+
+  if (!get("DependendantDispensaryDistrict")) {
+    issues.push({ column: "DependendantDispensaryDistrict", severity: "error", message: "DependendantDispensaryDistrict is required" })
+  }
+  normalized.DependendantDispensaryDistrict = get("DependendantDispensaryDistrict")
+
+  if (!get("DependendantDispensaryName")) {
+    issues.push({ column: "DependendantDispensaryName", severity: "error", message: "DependendantDispensaryName is required" })
+  }
+  normalized.DependendantDispensaryName = get("DependendantDispensaryName")
+
+  if (!get("DependendantDispensaryId")) {
+    issues.push({ column: "DependendantDispensaryId", severity: "error", message: "DependendantDispensaryId is required (duplicate text — match by numeric ID)" })
+  }
+  normalized.DependendantDispensaryId = get("DependendantDispensaryId")
 
   // ─── Appointment date ──────────────────────────────────────────────────
   const doaErr = validateDate(get("AppointmentDate"), "AppointmentDate", {

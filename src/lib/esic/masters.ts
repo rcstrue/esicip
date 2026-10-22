@@ -56,9 +56,35 @@ export const STATE_CODES: Record<string, string> = {
 }
 
 /** Reverse lookup: state name (case-insensitive) → code. */
-export const STATE_NAME_TO_CODE: Record<string, string> = Object.fromEntries(
-  Object.entries(STATE_CODES).map(([code, name]) => [name.toLowerCase(), code]),
-)
+export const STATE_NAME_TO_CODE: Record<string, string> = {
+  ...Object.fromEntries(
+    Object.entries(STATE_CODES).map(([code, name]) => [name.toLowerCase(), code]),
+  ),
+  // Portal-spelling aliases — the live dropdown uses idiosyncratic spellings;
+  // accept both the proper and the portal spelling at validation time.
+  chattishgarh: "27", // portal spelling of Chhattisgarh
+  pondicherry: "12", // portal spelling of Puducherry
+  "jammu & kashmir": "2", // portal spelling of "Jammu and Kashmir"
+}
+
+/**
+ * The live Present/Permanent State <select> uses the state NAME as the option
+ * value, but with idiosyncratic spellings. Map the proper spelling -> portal
+ * spelling so the validator outputs a value that matches the dropdown text.
+ * (Dispensary State uses numeric codes -- unaffected.)
+ */
+export const STATE_PORTAL_SPELLINGS: Record<string, string> = {
+  chhattisgarh: "Chattishgarh",
+  puducherry: "Pondicherry",
+  "jammu and kashmir": "Jammu & Kashmir",
+  "andaman and nicobar": "Andaman and Nicobar",
+}
+
+/** Normalize a state name to the portal dropdown's spelling (case-insensitive). */
+export function toPortalStateSpelling(name: string): string {
+  const k = (name || "").trim().toLowerCase()
+  return STATE_PORTAL_SPELLINGS[k] ?? name
+}
 
 /** Nominee / family-member relation codes (RelationShipWithIp <select>). */
 export const RELATION_CODES: Record<string, string> = {
