@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>ESIC Main Form — Local Mock</title>
+<style>body{font:13px/1.5 sans-serif;padding:14px;background:#fafafa}h2{border-bottom:1px solid #ccc;padding-bottom:2px;margin:14px 0 6px}label{display:inline-block;width:200px}input,select{padding:4px;margin:2px 0}.row{margin:2px 0}.hidden-code{color:#888;font-size:11px}#log{position:fixed;right:10px;top:10px;width:380px;max-height:90vh;overflow:auto;background:#1f2937;color:#d1d5db;padding:8px;font:11px monospace;border-radius:6px}</style></head>
+<body>
+<div id="log">page-JS log:<br></div>
+<h1>ESIC Main Form — Local Mock (EmployeeCounterFoilRegistration.aspx)</h1>
+<p>Purpose: let the extension's content.js fill logic be tested locally (no live ESIC). Replicates the real field IDs + the page-JS behavior (selectPresentStates/selectpresentDistrict/assignGender/saveDispIMP) per the spec.</p>
+
+<h2>Personal</h2>
+<div class="row"><label>Disability Yes/No</label><input type="radio" name="ctl00$HomePageContent$ctrlRDIpDisable" id="ctl00_HomePageContent_ctrlRDIpDisable_0" value="Yes"> <input type="radio" name="ctl00$HomePageContent$ctrlRDIpDisable" id="ctl00_HomePageContent_ctrlRDIpDisable_1" value="No" checked></div>
+<div class="row"><label>2. Name*</label><input type="text" id="ctl00_HomePageContent_ctrlTextEmpName" maxlength="45"></div>
+<div class="row"><label>Father/Husband radio</label><input type="radio" name="ctl00$HomePageContent$ctrlFatherOrHus" id="ctl00_HomePageContent_ctrlFatherOrHus_0" value="Father"> <input type="radio" name="ctl00$HomePageContent$ctrlFatherOrHus" id="ctl00_HomePageContent_ctrlFatherOrHus_1" value="Husband"></div>
+<div class="row"><label>3. Father/Husband name*</label><input type="text" id="ctl00_HomePageContent_ctrlTextFatherHusName" maxlength="50"></div>
+<div class="row"><label>4. DOB* (dd/mm/yyyy)</label><input type="text" id="ctl00_HomePageContent_ctrlTxtIpDate" maxlength="10" readonly></div>
+<div class="row"><label>6. Marital*</label><select id="ctl00_HomePageContent_ctrlRDMarried" onchange="assignGender()"><option value="0">---Please Select---</option><option value="1">UnMarried</option><option value="2">Married</option><option value="3">Widow</option><option value="4">Widower</option></select></div>
+<div class="row"><label>Gender</label><input type="radio" name="ctl00$HomePageContent$ctrlRDMale" id="ctl00_HomePageContent_ctrlRDMale_0" value="M"> <input type="radio" name="ctl00$HomePageContent$ctrlRDMale" id="ctl00_HomePageContent_ctrlRDMale_1" value="F"> <input type="radio" name="ctl00$HomePageContent$ctrlRDMale" id="ctl00_HomePageContent_ctrlRDMale_2" value="TG"></div>
+<div class="row"><label>Date of Appointment*</label><input type="text" id="ctl00_HomePageContent_ctrlDIDateOfAppointmentDy" maxlength="10"></div>
+<div class="row"><label>Self Photo file</label><input type="file" id="ctl00_HomePageContent_FileUpload_Photo"> <input type="submit" id="ctl00_HomePageContent_UploadButton" value="Upload Photo" onclick="uploadPhotoMock();return false;"><input type="hidden" id="ctl00_HomePageContent_hdnupload_Photo" value=""></div>
+
+<h2>Present Address</h2>
+<div class="row"><label>Address1*</label><input type="text" id="ctl00_HomePageContent_ctrlTextPresentAddress1" maxlength="50"></div>
+<div class="row"><label>Address2</label><input type="text" id="ctl00_HomePageContent_ctrlTextPresentAddress2" maxlength="50"></div>
+<div class="row"><label>Address3</label><input type="text" id="ctl00_HomePageContent_ctrlTextPresentAddress3" maxlength="50"></div>
+<div class="row"><label>Pin*</label><input type="text" id="ctl00_HomePageContent_ctrlTxtPresentPinCode" maxlength="6"></div>
+<div class="row"><label>State*</label><select id="ctl00_HomePageContent_ctrlTxtPresentState" onchange="selectPresentStates()"></select> <span class="hidden-code">hidpresentdenState=<span id="hidpresentdenState">(empty)</span></span></div>
+<div class="row"><label>District*</label><select id="ctl00_HomePageContent_ctrlTextPresentDistrict" onchange="selectpresentDistrict()"><option value="-1">---Please Select---</option></select> <span class="hidden-code">hiddenpresentdistrict=<span id="hiddenpresentdistrict">(empty)</span></span></div>
+<div class="row"><label>Mobile (disabled)</label><input type="text" id="ctl00_HomePageContent_ctrlTextPresentMobileNo" maxlength="10" disabled value="9898319329"></div>
+<div class="row"><label>Email</label><input type="text" id="ctl00_HomePageContent_ctrlTextPresentEmail" maxlength="45"></div>
+
+<h2>Permanent Address (explicit — DO NOT use Copy checkbox)</h2>
+<div class="row"><label>Address1*</label><input type="text" id="ctl00_HomePageContent_ctrlTextPermanentAddress1" maxlength="50"></div>
+<div class="row"><label>Address2</label><input type="text" id="ctl00_HomePageContent_ctrlTextPermanentAddress2" maxlength="50"></div>
+<div class="row"><label>Address3</label><input type="text" id="ctl00_HomePageContent_ctrlTextPermanentAddress3" maxlength="50"></div>
+<div class="row"><label>Pin*</label><input type="text" id="ctl00_HomePageContent_ctrlTextPermanentPinCode" maxlength="6"></div>
+<div class="row"><label>State*</label><select id="ctl00_HomePageContent_ctrlTextPermanentState" onchange="selectPermanentStates()"></select> <span class="hidden-code">hidpermenantState=<span id="hidpermenantState">(empty)</span></span></div>
+<div class="row"><label>District*</label><select id="ctl00_HomePageContent_ctrlTextPermanentDistrict" onchange="selectpermanentDistrict()"><option value="-1">---Please Select---</option></select> <span class="hidden-code">hiddenpermenantdistrict=<span id="hiddenpermenantdistrict">(empty)</span></span></div>
+
+<h2>Employee Dispensary</h2>
+<div class="row"><label>State (numeric)</label><select id="ctl00_HomePageContent_ddlDispensaryState" onchange="loadDispDistricts()"></select></div>
+<div class="row"><label>District</label><select id="ctl00_HomePageContent_ddlDispensaryDistrict" onchange="loadDispensaries()"><option value="-1">---Please Select---</option></select></div>
+<div class="row"><label>Type</label><input type="radio" name="ctl00$HomePageContent$ctrlRBDispensaryIMP" id="ctl00_HomePageContent_ctrlRBDispensaryIMP_0" value="Dispensary" checked> <input type="radio" name="ctl00$HomePageContent$ctrlRBDispensaryIMP" id="ctl00_HomePageContent_ctrlRBDispensaryIMP_1" value="IMP"> <input type="radio" name="ctl00$HomePageContent$ctrlRBDispensaryIMP" id="ctl00_HomePageContent_ctrlRBDispensaryIMP_2" value="EMud"></div>
+<div class="row"><label>Dispensary (numeric IDs)</label><select id="ctl00_HomePageContent_ctrlTextDispensary" onchange="log('disp selected: '+this.value)"><option value="-1">---Please Select---</option></select></div>
+
+<h2>Dependant Dispensary</h2>
+<div class="row"><label>State</label><select id="ctl00_HomePageContent_ddldependantDispensaryState" onchange="loadDepDispDistricts()"></select></div>
+<div class="row"><label>District</label><select id="ctl00_HomePageContent_ddldependantDispensaryDistrict" onchange="loadDepDispensaries()"><option value="-1">---Please Select---</option></select></div>
+<div class="row"><label>Type</label><input type="radio" name="ctl00$HomePageContent$ctrlRBDependantDispensaryIMP" id="ctl00_HomePageContent_ctrlRBDependantDispensaryIMP_0" value="Dispensary" checked> <input type="radio" name="ctl00$HomePageContent$ctrlRBDependantDispensaryIMP" id="ctl00_HomePageContent_ctrlRBDependantDispensaryIMP_1" value="IMP"> <input type="radio" name="ctl00$HomePageContent$ctrlRBDependantDispensaryIMP" id="ctl00_HomePageContent_ctrlRBDependantDispensaryIMP_2" value="EMud"></div>
+<div class="row"><label>Dispensary</label><select id="ctl00_HomePageContent_ddldependantdispensary" onchange="log('dep disp selected: '+this.value)"><option value="-1">---Please Select---</option></select></div>
+
+<h2>Misc</h2>
+<div class="row"><label>17. SMS Language*</label><select id="ctl00_HomePageContent_ddllanguage"><option value="-1">---Please Select---</option><option value="1">Hindi</option><option value="2">Asamiya</option><option value="3">Bangali</option><option value="4">English</option></select></div>
+<div class="row"><label>Declaration</label><input type="checkbox" id="ctl00_HomePageContent_dec_chkbox" onclick="validchkButton()"></div>
+<div class="row"><label>Submit</label><input type="submit" id="ctl00_HomePageContent_Submit" value="Submit" onclick="saveDispIMP();return false;"></div>
+
+<hr><button id="runFill" onclick="runFillFromQueue()">▶ Run content.js fillMain against a mock queue item</button>
+<script>
+// ─── Mock geo data (mirrors window.states / window.districts on the live portal) ──
+window.states = [["Andaman and Nicobar","102"],["Gujarat","29"],["Maharashtra","27"]];
+window.districts = [
+  [["Nicobar","1001"],["Car Nicobar","1002"]],                                  // Andaman
+  [["Surat","398"],["Amreli District","66"],["The Dangs","900"]],               // Gujarat
+  [["Mumbai","501"],["Pune","502"]],                                             // Maharashtra
+];
+// Dispensary options per (state,district) — numeric IDs, WITH DUPLICATE TEXT (1877 & 3417 both "D 32 Amraiwadi")
+window.dispensaries = {
+  "29|398": [["1876","D 1 Sabarmati"],["1877","D 32 Amraiwadi"],["3417","D 32 Amraiwadi"]],
+  "27|501": [["5001","D 1 Andheri"]],
+};
+
+function log(m){const l=document.getElementById('log');l.innerHTML+=m+'<br>';}
+
+// Build present/permanent state selects (option value == name, like the live portal).
+(function buildStateSelects(){
+  [['ctl00_HomePageContent_ctrlTxtPresentState'],['ctl00_HomePageContent_ctrlTextPermanentState'],['ctl00_HomePageContent_ddlDispensaryState']].forEach(([id])=>{
+    const el=document.getElementById(id);
+    el.innerHTML='<option value="---Please Select---">---Please Select---</option>'+window.states.map(s=>`<option value="${s[0]}">${s[0]}</option>`).join('');
+  });
+  // Dispensary state uses numeric codes (different from present/permanent name)
+  const ds=document.getElementById('ctl00_HomePageContent_ddlDispensaryState');
+  ds.innerHTML='<option value="-1">---Please Select---</option>'+window.states.map(s=>`<option value="${s[1]}">${s[0]}</option>`).join('');
+})();
+
+// selectPresentStates() — reads selectedIndex-1, rebuilds district options, writes hidden state code.
+function selectPresentStates(){
+  const st=document.getElementById('ctl00_HomePageContent_ctrlTxtPresentState');
+  const idx=st.selectedIndex-1;
+  if(idx<0){document.getElementById('hidpresentdenState').textContent='(empty)';return;}
+  const code=window.states[idx][1];
+  document.getElementById('hidpresentdenState').textContent=code;
+  const dist=document.getElementById('ctl00_HomePageContent_ctrlTextPresentDistrict');
+  dist.innerHTML='<option value="-1">---Please Select---</option>';
+  window.districts[idx].forEach(d=>{const o=document.createElement('option');o.value=d[0];o.text=d[0];dist.add(o);});
+  document.getElementById('hiddenpresentdistrict').textContent='(empty)';
+  log('selectPresentStates: state='+window.states[idx][0]+' code='+code+', districts loaded='+window.districts[idx].length);
+}
+function selectpresentDistrict(){
+  const st=document.getElementById('ctl00_HomePageContent_ctrlTxtPresentState');
+  const dist=document.getElementById('ctl00_HomePageContent_ctrlTextPresentDistrict');
+  const sIdx=st.selectedIndex-1, dIdx=dist.selectedIndex-1;
+  if(sIdx<0||dIdx<0){document.getElementById('hiddenpresentdistrict').textContent='(empty)';return;}
+  const code=window.districts[sIdx][dIdx][1];
+  document.getElementById('hiddenpresentdistrict').textContent=code;
+  log('selectpresentDistrict: '+window.districts[sIdx][dIdx][0]+' code='+code);
+}
+// Permanent mirrors present.
+function selectPermanentStates(){
+  const st=document.getElementById('ctl00_HomePageContent_ctrlTextPermanentState');
+  const idx=st.selectedIndex-1;
+  if(idx<0){document.getElementById('hidpermenantState').textContent='(empty)';return;}
+  document.getElementById('hidpermenantState').textContent=window.states[idx][1];
+  const dist=document.getElementById('ctl00_HomePageContent_ctrlTextPermanentDistrict');
+  dist.innerHTML='<option value="-1">---Please Select---</option>';
+  window.districts[idx].forEach(d=>{const o=document.createElement('option');o.value=d[0];o.text=d[0];dist.add(o);});
+  document.getElementById('hiddenpermenantdistrict').textContent='(empty)';
+  log('selectPermanentStates: state='+window.states[idx][0]);
+}
+function selectpermanentDistrict(){
+  const st=document.getElementById('ctl00_HomePageContent_ctrlTextPermanentState');
+  const dist=document.getElementById('ctl00_HomePageContent_ctrlTextPermanentDistrict');
+  const sIdx=st.selectedIndex-1, dIdx=dist.selectedIndex-1;
+  if(sIdx<0||dIdx<0){document.getElementById('hiddenpermenantdistrict').textContent='(empty)';return;}
+  document.getElementById('hiddenpermenantdistrict').textContent=window.districts[sIdx][dIdx][1];
+  log('selectpermanentDistrict: '+window.districts[sIdx][dIdx][0]);
+}
+// Dispensary cascade.
+function loadDispDistricts(){
+  const ds=document.getElementById('ctl00_HomePageContent_ddlDispensaryState');
+  const code=ds.value;
+  const idx=window.states.findIndex(s=>s[1]===code);
+  const dd=document.getElementById('ctl00_HomePageContent_ddlDispensaryDistrict');
+  dd.innerHTML='<option value="-1">---Please Select---</option>';
+  if(idx>=0) window.districts[idx].forEach(d=>{const o=document.createElement('option');o.value=d[0];o.text=d[0];dd.add(o);});
+  log('loadDispDistricts: state code='+code);
+}
+function loadDispensaries(){
+  const ds=document.getElementById('ctl00_HomePageContent_ddlDispensaryState');
+  const dd=document.getElementById('ctl00_HomePageContent_ddlDispensaryDistrict');
+  const key=ds.value+'|'+ (function(){const idx=window.states.findIndex(s=>s[1]===ds.value);return idx>=0?window.districts[idx][dd.selectedIndex-1][0]:'';})();
+  const sel=document.getElementById('ctl00_HomePageContent_ctrlTextDispensary');
+  sel.innerHTML='<option value="-1">---Please Select---</option>';
+  const list=window.dispensaries[Object.keys(window.dispensaries).find(k=>k.startsWith(ds.value+'|'))]||[];
+  list.forEach(d=>{const o=document.createElement('option');o.value=d[0];o.text=d[0]+' '+d[1];o.dataset.name=d[1];sel.add(o);});
+  log('loadDispensaries: '+list.length+' options');
+}
+function loadDepDispDistricts(){log('TODO dep disp districts');}
+function loadDepDispensaries(){log('TODO dep disp list');}
+
+// Marital → gender interlock (assignGender, no postback).
+function assignGender(){
+  const m=document.getElementById('ctl00_HomePageContent_ctrlRDMarried').value;
+  const m0=document.getElementById('ctl00_HomePageContent_ctrlRDMale_0');
+  const m1=document.getElementById('ctl00_HomePageContent_ctrlRDMale_1');
+  [m0,m1,document.getElementById('ctl00_HomePageContent_ctrlRDMale_2')].forEach(r=>{r.checked=false;r.disabled=false;});
+  if(m==='3'){m1.checked=true;log('assignGender: Widow → F forced');}
+  else if(m==='4'){m0.checked=true;log('assignGender: Widower → M forced');}
+  else log('assignGender: marital='+m+' (gender cleared)');
+}
+// Declaration + submit guards (simplified).
+function validchkButton(){
+  const name=document.getElementById('ctl00_HomePageContent_ctrlTextEmpName').value;
+  const f=document.getElementById('ctl00_HomePageContent_ctrlTextFatherHusName').value;
+  const dob=document.getElementById('ctl00_HomePageContent_ctrlTxtIpDate').value;
+  const doa=document.getElementById('ctl00_HomePageContent_ctrlDIDateOfAppointmentDy').value;
+  const chk=document.getElementById('ctl00_HomePageContent_dec_chkbox');
+  if(!name||!f||!dob||!doa){chk.checked=false;log('validchkButton: FAIL (missing name/father/dob/doa) — unticked');return false;}
+  chk.checked=true;log('validchkButton: OK — ticked');return true;
+}
+function saveDispIMP(){
+  const sel=document.getElementById('ctl00_HomePageContent_ctrlTextDispensary');
+  if(sel.selectedIndex<=0){log('saveDispIMP: FAIL — dispensary not selected (throws on live)');return false;}
+  log('saveDispIMP: dispensary id='+sel.value+' — SUBMIT would proceed');return true;
+}
+function uploadPhotoMock(){
+  const f=document.getElementById('ctl00_HomePageContent_FileUpload_Photo');
+  if(!f.value){log('uploadPhotoMock: no file picked');return;}
+  document.getElementById('ctl00_HomePageContent_hdnupload_Photo').value='photo-uploaded';
+  log('uploadPhotoMock: photo uploaded → hdnupload_Photo set');
+}
+// Stub for the content.js fill driver to call (test entry point).
+function runFillFromQueue(){log('click ▶ Run — the test driver injects content.js fillMain() instead.');}
+</script>
+</body></html>
