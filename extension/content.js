@@ -1570,7 +1570,7 @@ async function autoFill() {
 }
 
 // Initial fill after 5 seconds (give AJAX time to start loading)
-setTimeout(autoFill, 1500)
+setTimeout(autoFill, 1500);
 
 // ─── Live-form mode: flag <html> so the dialog patch auto-accepts confirms ─
 (async () => {
@@ -1597,7 +1597,7 @@ setTimeout(autoFill, 1500)
 // ESIC opens the entry/main form in a window.open() popup with no bookmark bar
 // or extension toolbar, so the user can't open the extension popup there. This
 // floating button lets them (re)trigger the fill + see the result inline.
-(function () {
+;(function () {
   if (document.getElementById("esic-float-btn")) return
   const btn = document.createElement("div")
   btn.id = "esic-float-btn"
