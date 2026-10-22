@@ -41573,7 +41573,7 @@ function validateRow(rowIndex, raw) {
   }
   normalized.DispensaryName = get("DispensaryName");
   if (!get("DispensaryId")) {
-    issues.push({ column: "DispensaryId", severity: "error", message: "DispensaryId is required (dispensary options have duplicate text — match by numeric ID)" });
+    issues.push({ column: "DispensaryId", severity: "warning", message: "DispensaryId missing — will match by DispensaryName (stops if the name matches >1 option). Provide the numeric ID to disambiguate." });
   }
   normalized.DispensaryId = get("DispensaryId");
   const depDispType = get("DependendantDispensaryType") || "Dispensary";
@@ -41596,7 +41596,7 @@ function validateRow(rowIndex, raw) {
   }
   normalized.DependendantDispensaryName = get("DependendantDispensaryName");
   if (!get("DependendantDispensaryId")) {
-    issues.push({ column: "DependendantDispensaryId", severity: "error", message: "DependendantDispensaryId is required (duplicate text — match by numeric ID)" });
+    issues.push({ column: "DependendantDispensaryId", severity: "warning", message: "DependendantDispensaryId missing — will match by name (stops on ambiguity)." });
   }
   normalized.DependendantDispensaryId = get("DependendantDispensaryId");
   const doaErr = validateDate(get("AppointmentDate"), "AppointmentDate", {

@@ -110,3 +110,24 @@ chrome.notifications.onClicked.addListener((notifId) => {
 
 // Run once on startup.
 checkForUpdate()
+
+// ─── Auto-activate the ESIC registration tab when it opens ───────────
+// The dashboard's "Register/Enroll New Employee" link opens the entry page
+// in a NEW TAB. Switch to it (+ focus the window) so the user sees the
+// auto-fill instead of staring at the dashboard tab.
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+  if (info.status !== "complete") return
+  const u = (tab.url || "").toLowerCase()
+  const isRegPage =
+    u.includes("employeecounterfoilregistration") ||
+    u.includes("1registeredemployees") ||
+    u.includes("empe_ip_abha") ||
+    u.includes("employeebankdetails") ||
+    u.includes("nomineedetails")
+  if (isRegPage) {
+    chrome.tabs.update(tabId, { active: true })
+    chrome.tabs.get(tabId, (t) => {
+      if (t && t.windowId != null) chrome.windows.update(t.windowId, { focused: true })
+    })
+  }
+})

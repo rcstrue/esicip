@@ -205,6 +205,19 @@
     return pre
   }
 
+  // Match a dispensary <option> by ID (preferred) or by name. If a name matches
+  // >1 option, STOP (never guess) and log the candidates.
+  function matchDispensaryOption(sel, id, name) {
+    if (id) { for (const o of sel.options) if (String(o.value) === String(id)) return o; }
+    if (name) {
+      const norm = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim()
+      const matches = Array.from(sel.options).filter((o) => norm(o.text).includes(norm(name)) || norm(o.value).includes(norm(name)))
+      if (matches.length === 1) return matches[0]
+      if (matches.length > 1) { log("AMBIGUOUS dispensary \"" + name + "\" matches " + matches.length + " options: " + matches.slice(0, 5).map((o) => o.value + ":" + o.text).join(" | ") + " - provide DispensaryId to disambiguate"); return null; }
+    }
+    return null
+  }
+
   // ─── Live main-form plan (step-cursor resume driver) ──────────────────
   // Each step: { name, postback, run(cursor) -> bool(triggered reload) }.
   // The resume runner persists cursor BEFORE postback steps + resumes on reload.
@@ -252,10 +265,9 @@
         const ok = await waitFor(() => $id("ctl00_HomePageContent_ctrlTextDispensary") && $id("ctl00_HomePageContent_ctrlTextDispensary").options.length > 1, 5000)
         if (!ok) { log("FAIL disp select options"); return false; }
         const sel = $id("ctl00_HomePageContent_ctrlTextDispensary")
-        // Match by ID; if a name matches >1 option, STOP (never guess). TODO: ambiguity UI.
-        let matched = null
-        for (const o of sel.options) if (String(o.value) === String(n.DispensaryId)) { matched = o; break; }
-        if (!matched) { log("FAIL disp id " + n.DispensaryId + " not in [" + Array.from(sel.options).slice(0, 5).map((o) => o.value).join(",") + "]"); return false; }
+        // Match by ID (preferred) or by DispensaryName (stops on ambiguity).
+        let matched = matchDispensaryOption(sel, n.DispensaryId, n.DispensaryName)
+        if (!matched) { log("FAIL dispensary match (id=" + n.DispensaryId + ", name=" + n.DispensaryName + ") not in [" + Array.from(sel.options).slice(0, 5).map((o) => o.value + ":" + o.text).join(",") + "]"); return false; }
         sel.value = matched.value
         sel.dispatchEvent(new Event("change", { bubbles: true })) // PostBack
         return true
@@ -281,9 +293,8 @@
         const ok = await waitFor(() => $id("ctl00_HomePageContent_ddldependantdispensary") && $id("ctl00_HomePageContent_ddldependantdispensary").options.length > 1, 5000)
         if (!ok) { log("FAIL dep disp select options"); return false; }
         const sel = $id("ctl00_HomePageContent_ddldependantdispensary")
-        let matched = null
-        for (const o of sel.options) if (String(o.value) === String(n.DependendantDispensaryId)) { matched = o; break; }
-        if (!matched) { log("FAIL dep disp id " + n.DependendantDispensaryId); return false; }
+        let matched = matchDispensaryOption(sel, n.DependendantDispensaryId, n.DependendantDispensaryName)
+        if (!matched) { log("FAIL dep dispensary match (id=" + n.DependendantDispensaryId + ", name=" + n.DependendantDispensaryName + ")"); return false; }
         sel.value = matched.value
         sel.dispatchEvent(new Event("change", { bubbles: true }))
         return true

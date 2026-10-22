@@ -1528,10 +1528,19 @@ const MAX_AUTO_RETRIES = 3
 
 async function autoFill() {
   const data = await chrome.storage.local.get(["queue", "currentIndex", "macro", "useMacro"])
-  if (!data.queue || data.queue.length === 0) return
 
   const page = detectPage()
   if (page === "unknown") return
+
+  // Dashboard nav (dismiss popups + open Register/Enroll) runs even without
+  // a loaded queue -- so the user lands on the entry page after login.
+  if (page === "dashboard") {
+    console.log("[ESIC Auto-Fill] Dashboard -- handling (no queue needed)")
+    await fillPage()
+    return
+  }
+
+  if (!data.queue || data.queue.length === 0) return
 
   // If a recorded macro is enabled, replay it for this page (field-sets +
   // non-navigation clicks only; Submit/Continue/Save are still handled by
@@ -1582,4 +1591,31 @@ setTimeout(autoFill, 1500)
   } else if (macro && Array.isArray(macro.steps)) {
     macroSteps = macro.steps
   }
+})()
+
+// ─── In-page floating "Fill" button (for popup windows with no toolbar) ──
+// ESIC opens the entry/main form in a window.open() popup with no bookmark bar
+// or extension toolbar, so the user can't open the extension popup there. This
+// floating button lets them (re)trigger the fill + see the result inline.
+(function () {
+  if (document.getElementById("esic-float-btn")) return
+  const btn = document.createElement("div")
+  btn.id = "esic-float-btn"
+  btn.style.cssText =
+    "position:fixed;bottom:14px;right:14px;z-index:2147483647;background:#dc2626;color:#fff;padding:9px 16px;border-radius:999px;font:600 13px -apple-system,sans-serif;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.35);user-select:none;line-height:1.2;max-width:260px;text-align:center"
+  btn.textContent = "🤖 ESIC Fill"
+  btn.title = "Click to (re)fill this page. Works in popup windows without a toolbar."
+  btn.addEventListener("click", async () => {
+    btn.textContent = "🤖 Filling…"
+    try {
+      const r = await fillPage()
+      const msg = r && r.fillResult ? r.fillResult.message : "done"
+      btn.textContent = "🤖 " + (msg.length > 60 ? msg.slice(0, 57) + "…" : msg)
+    } catch (e) {
+      btn.textContent = "🤖 Error: " + e.message
+    }
+    setTimeout(() => (btn.textContent = "🤖 ESIC Fill"), 6000)
+  })
+  document.body.appendChild(btn)
+  console.log("[ESIC Auto-Fill] floating button injected")
 })()
