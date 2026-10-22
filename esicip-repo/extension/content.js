@@ -1272,8 +1272,24 @@ async function fillPage() {
     case "aadhaar":
       fillResult = await fillAadhaar(ipData)
       break
-    case "main":
+    case "main": {
+      // v2 opt-in: resume-driven fill across PostBack reloads (the spec fix).
+      const st = await chrome.storage.local.get(["useResumeFill"])
+      if (st.useResumeFill && window.ESICBuildMainFormPlan && window.registerResumePlan) {
+        const plan = window.ESICBuildMainFormPlan(ipData)
+        window.registerResumePlan("main-form", plan)
+        const c = await chrome.storage.local.get(["esicResumeCursor"])
+        if (!c.esicResumeCursor) {
+          console.log("[ESIC Auto-Fill] v2 resume fill: starting plan")
+          window.ESICRunPlan("main-form")
+        } else {
+          console.log("[ESIC Auto-Fill] v2 resume fill: cursor active — resume runner continues")
+        }
+        fillResult = { type: "info", message: "🤖 v2 resume fill active — stepping through the form. Watch the popup log / Selection report." }
+        break
+      }
       fillResult = await fillMain(ipData)
+    }
       break
     case "bank":
       fillResult = fillBank(ipData)

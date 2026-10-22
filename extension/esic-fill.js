@@ -205,6 +205,153 @@
     return pre
   }
 
+  // ─── Live main-form plan (step-cursor resume driver) ──────────────────
+  // Each step: { name, postback, run(cursor) -> bool(triggered reload) }.
+  // The resume runner persists cursor BEFORE postback steps + resumes on reload.
+  function buildMainFormPlan(item) {
+    const n = item.normalized || item
+    const $id = (id) => document.getElementById(id)
+    const gMap = { M: "_0", F: "_1", TG: "_2" }
+    const dMap = { Dispensary: "_0", IMP: "_1", EMud: "_2" }
+    const isHusband = n.RelationType === "Husband"
+    const dispTypeNotDefault = n.DispensaryType && n.DispensaryType !== "Dispensary"
+    const depTypeNotDefault = n.DependendantDispensaryType && n.DependendantDispensaryType !== "Dispensary"
+
+    const radioClick = (id) => { const r = $id(id); if (!r) return false; if (r.checked) { log("  " + id + " already checked"); return false; } r.click(); return true; }
+
+    return [
+      // 1. marital select (no postback) → assignGender verifies
+      { name: "marital", postback: false, run: async () => { setSelectByLabel("ctl00_HomePageContent_ctrlRDMarried", n.MaritalStatus); await sleep(30); return false; } },
+
+      // 2. gender radio (PostBack)
+      { name: "gender radio", postback: true, run: async () => radioClick("ctl00_HomePageContent_ctrlRDMale" + (gMap[n.Gender] || "_0")) },
+
+      // 3. Father/Husband radio (Husband → PostBack; Father → no postback)
+      { name: "father/husband radio", postback: isHusband, run: async () => {
+        const t = radioClick("ctl00_HomePageContent_ctrlFatherOrHus_" + (isHusband ? "1" : "0"))
+        return isHusband ? t : false // Father: no reload even if clicked
+      } },
+
+      // 4-7. Employee dispensary chain (state→district→type→dispensary; each PostBack)
+      { name: "disp state (PostBack)", postback: true, run: async () => {
+        const el = $id("ctl00_HomePageContent_ddlDispensaryState")
+        if (!el) return false
+        if (el.value === String(n.DispensaryState)) { log("  disp state already"); return false; }
+        return setSelectByValue("ctl00_HomePageContent_ddlDispensaryState", String(n.DispensaryState))
+      } },
+      { name: "disp district (PostBack)", postback: true, run: async () => {
+        const ok = await waitFor(() => $id("ctl00_HomePageContent_ddlDispensaryDistrict") && $id("ctl00_HomePageContent_ddlDispensaryDistrict").options.length > 1, 5000)
+        if (!ok) { log("FAIL disp district options"); return false; }
+        return setSelectByLabel("ctl00_HomePageContent_ddlDispensaryDistrict", n.DispensaryDistrict)
+      } },
+      { name: "disp type radio", postback: dispTypeNotDefault, run: async () => {
+        if (!dispTypeNotDefault) return false // Dispensary _0 default, no postback
+        return radioClick("ctl00_HomePageContent_ctrlRBDispensaryIMP" + (dMap[n.DispensaryType] || "_0"))
+      } },
+      { name: "disp select by ID (PostBack)", postback: true, run: async () => {
+        const ok = await waitFor(() => $id("ctl00_HomePageContent_ctrlTextDispensary") && $id("ctl00_HomePageContent_ctrlTextDispensary").options.length > 1, 5000)
+        if (!ok) { log("FAIL disp select options"); return false; }
+        const sel = $id("ctl00_HomePageContent_ctrlTextDispensary")
+        // Match by ID; if a name matches >1 option, STOP (never guess). TODO: ambiguity UI.
+        let matched = null
+        for (const o of sel.options) if (String(o.value) === String(n.DispensaryId)) { matched = o; break; }
+        if (!matched) { log("FAIL disp id " + n.DispensaryId + " not in [" + Array.from(sel.options).slice(0, 5).map((o) => o.value).join(",") + "]"); return false; }
+        sel.value = matched.value
+        sel.dispatchEvent(new Event("change", { bubbles: true })) // PostBack
+        return true
+      } },
+
+      // 8-11. Dependendant dispensary chain (mirror of 4-7)
+      { name: "dep disp state (PostBack)", postback: true, run: async () => {
+        const el = $id("ctl00_HomePageContent_ddldependantDispensaryState")
+        if (!el) return false
+        if (el.value === String(n.DependendantDispensaryState)) { log("  dep disp state already"); return false; }
+        return setSelectByValue("ctl00_HomePageContent_ddldependantDispensaryState", String(n.DependendantDispensaryState))
+      } },
+      { name: "dep disp district (PostBack)", postback: true, run: async () => {
+        const ok = await waitFor(() => $id("ctl00_HomePageContent_ddldependantDispensaryDistrict") && $id("ctl00_HomePageContent_ddldependantDispensaryDistrict").options.length > 1, 5000)
+        if (!ok) { log("FAIL dep disp district options"); return false; }
+        return setSelectByLabel("ctl00_HomePageContent_ddldependantDispensaryDistrict", n.DependendantDispensaryDistrict)
+      } },
+      { name: "dep disp type radio", postback: depTypeNotDefault, run: async () => {
+        if (!depTypeNotDefault) return false
+        return radioClick("ctl00_HomePageContent_ctrlRBDependantDispensaryIMP" + (dMap[n.DependendantDispensaryType] || "_0"))
+      } },
+      { name: "dep disp select by ID (PostBack)", postback: true, run: async () => {
+        const ok = await waitFor(() => $id("ctl00_HomePageContent_ddldependantdispensary") && $id("ctl00_HomePageContent_ddldependantdispensary").options.length > 1, 5000)
+        if (!ok) { log("FAIL dep disp select options"); return false; }
+        const sel = $id("ctl00_HomePageContent_ddldependantdispensary")
+        let matched = null
+        for (const o of sel.options) if (String(o.value) === String(n.DependendantDispensaryId)) { matched = o; break; }
+        if (!matched) { log("FAIL dep disp id " + n.DependendantDispensaryId); return false; }
+        sel.value = matched.value
+        sel.dispatchEvent(new Event("change", { bubbles: true }))
+        return true
+      } },
+
+      // 12-13. disability No, prev-employer No (no postback)
+      { name: "disability=No", postback: false, run: async () => { radioClick("ctl00_HomePageContent_ctrlRDIpDisable_1"); return false; } },
+      { name: "prev-employer=No", postback: false, run: async () => { radioClick("ctl00_HomePageContent_ctrlRDPrevEmployer_1"); return false; } },
+
+      // 14. PAUSE for photo upload (manual file pick) → resume when hdnupload_Photo non-empty
+      { name: "wait photo upload", postback: false, run: async () => {
+        const h = $id("ctl00_HomePageContent_hdnupload_Photo")
+        if (h && h.value) { log("  photo already uploaded"); return false; }
+        log("⏸ PAUSE: pick Self Photo + click Upload Photo — waiting for hdnupload_Photo (up to 5 min)")
+        await waitFor(() => $id("ctl00_HomePageContent_hdnupload_Photo") && $id("ctl00_HomePageContent_hdnupload_Photo").value, 300000)
+        return false
+      } },
+
+      // 15. SAME-PASS non-postback fill: name, father, present addr/pin + geo, permanent + geo, DOA, DOB, ddllanguage
+      { name: "text+geo+dates+language (same pass)", postback: false, run: async () => {
+        setTextInput("ctl00_HomePageContent_ctrlTextEmpName", n.EmpName)
+        setTextInput("ctl00_HomePageContent_ctrlTextFatherHusName", n.FatherOrHusbandName)
+        setTextInput("ctl00_HomePageContent_ctrlTextPresentAddress1", n.PresentAddress)
+        setTextInput("ctl00_HomePageContent_ctrlTxtPresentPinCode", n.PinCode)
+        await fillGeo("ctl00_HomePageContent_ctrlTxtPresentState", "ctl00_HomePageContent_ctrlTextPresentDistrict", "hidpresentdenState", "hiddenpresentdistrict", n.PresentState, n.PresentDistrict)
+        setTextInput("ctl00_HomePageContent_ctrlTextPermanentAddress1", n.PermanentAddress)
+        setTextInput("ctl00_HomePageContent_ctrlTextPermanentPinCode", n.PermanentPinCode)
+        await fillGeo("ctl00_HomePageContent_ctrlTextPermanentState", "ctl00_HomePageContent_ctrlTextPermanentDistrict", "hidpermenantState", "hiddenpermenantdistrict", n.PermanentState, n.PermanentDistrict)
+        setTextInput("ctl00_HomePageContent_ctrlDIDateOfAppointmentDy", n.AppointmentDate)
+        setTextInput("ctl00_HomePageContent_ctrlTxtIpDate", n.DOB)
+        setSelectByLabel("ctl00_HomePageContent_ddllanguage", n.SMSLanguage)
+        return false
+      } },
+
+      // 16. declaration click (only if unchecked) + verify DOA not cleared
+      { name: "declaration", postback: false, run: async () => {
+        const chk = $id("ctl00_HomePageContent_dec_chkbox")
+        if (chk && !chk.checked) chk.click()
+        await sleep(30)
+        const doa = $id("ctl00_HomePageContent_ctrlDIDateOfAppointmentDy")
+        log("declaration checked=" + (chk ? chk.checked : "no-el") + " doa=" + (doa ? doa.value : ""))
+        return false
+      } },
+
+      // 17. pre-submit check → STOP (user clicks Submit)
+      { name: "pre-submit check", postback: false, run: async () => {
+        const pre = {
+          name: $id("ctl00_HomePageContent_ctrlTextEmpName") && $id("ctl00_HomePageContent_ctrlTextEmpName").value,
+          father: $id("ctl00_HomePageContent_ctrlTextFatherHusName") && $id("ctl00_HomePageContent_ctrlTextFatherHusName").value,
+          dob: $id("ctl00_HomePageContent_ctrlTxtIpDate") && $id("ctl00_HomePageContent_ctrlTxtIpDate").value,
+          doa: $id("ctl00_HomePageContent_ctrlDIDateOfAppointmentDy") && $id("ctl00_HomePageContent_ctrlDIDateOfAppointmentDy").value,
+          language: $id("ctl00_HomePageContent_ddllanguage") && $id("ctl00_HomePageContent_ddllanguage").selectedIndex,
+          presentStateCode: getHidden("hidpresentdenState"),
+          presentDistrictCode: getHidden("hiddenpresentdistrict"),
+          permanentStateCode: getHidden("hidpermenantState"),
+          permanentDistrictCode: getHidden("hiddenpermenantdistrict"),
+          dispensarySelected: $id("ctl00_HomePageContent_ctrlTextDispensary") && $id("ctl00_HomePageContent_ctrlTextDispensary").selectedIndex,
+          declaration: $id("ctl00_HomePageContent_dec_chkbox") && $id("ctl00_HomePageContent_dec_chkbox").checked,
+          photo: $id("ctl00_HomePageContent_hdnupload_Photo") && $id("ctl00_HomePageContent_hdnupload_Photo").value,
+        }
+        log("PRE-SUBMIT " + JSON.stringify(pre))
+        chrome.runtime.sendMessage({ type: "preSubmitReport", report: pre })
+        return false
+      } },
+    ]
+  }
+  window.ESICBuildMainFormPlan = buildMainFormPlan
+
   window.ESICfillMainForm = fillMainForm
   window.ESICfillLog = () => LOG.slice()
   log("esic-fill.js loaded")

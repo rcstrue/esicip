@@ -12,6 +12,8 @@ const EXTENSION_FILES = [
   "popup.html",
   "popup.js",
   "lib.bundle.js",
+  "esic-fill.js",
+  "esic-resume.js",
   "content.js",
   "dialog-patch.js",
   "background.js",

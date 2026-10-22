@@ -20,6 +20,8 @@ let state = {
   macroStepCount: 0,
   validation: null, // { summary, validated[] } from the last xlsx/csv load
   validationFilter: "all",
+  useResumeFill: false, // 🧪 v2 resume fill (main form)
+  resumeLog: [],
 }
 
 // ─── Load state from chrome.storage on popup open ──────────────────
@@ -34,6 +36,8 @@ async function loadState() {
     "useMacro",
     "recording",
     "macro",
+    "useResumeFill",
+    "esicResumeLog",
   ])
   state.queue = data.queue || []
   state.currentIndex = data.currentIndex || 0
@@ -56,6 +60,7 @@ async function saveState() {
     lastFillResult: state.lastFillResult,
     autoClickMode: state.autoClickMode,
     useMacro: state.useMacro,
+    useResumeFill: state.useResumeFill,
   })
 }
 
@@ -100,6 +105,14 @@ function render() {
     toggle.checked = !!state.autoClickMode
     if (row) row.classList.toggle("off", !state.autoClickMode)
   }
+
+  // 🧪 v2 resume toggle
+  const rT = $("resume-toggle")
+  const rRow = $("resume-row")
+  if (rT) { rT.checked = !!state.useResumeFill; if (rRow) rRow.classList.toggle("off", !state.useResumeFill); }
+  const rls = $("resume-log-section")
+  if (rls) rls.style.display = state.useResumeFill ? "block" : "none"
+  renderResumeLog()
 
   // ▶ Macro recorder
   const useT = $("usemacro-toggle")
@@ -236,6 +249,15 @@ function renderValidation() {
     .join("")
 }
 
+function renderResumeLog() {
+  const el = $("resume-log")
+  if (!el) return
+  const lines = state.resumeLog || []
+  el.innerHTML = lines.length
+    ? lines.map((l) => "<div>" + escapeHtml(l) + "</div>").join("")
+    : '<div style="color:#999">No v2 fill activity yet. On the ESIC main form, the runner logs each step here.</div>'
+}
+
 // ─── Load queue.json ───────────────────────────────────────────────
 $("load-btn").addEventListener("click", () => $("file-input").click())
 
@@ -351,6 +373,29 @@ $("autoclick-toggle").addEventListener("change", async (e) => {
   // Re-trigger the current page fill so the auto-click kicks in immediately
   if (state.autoClickMode) await sendMessageToTab({ action: "fillPage" })
 })
+
+// ─── 🧪 v2 resume fill toggle ───────────────────────────────────────
+$("resume-toggle").addEventListener("change", async (e) => {
+  state.useResumeFill = e.target.checked
+  await saveState()
+  if (!state.useResumeFill) {
+    // turning off — clear any active resume cursor
+    await chrome.storage.local.set({ esicResumeCursor: null })
+  }
+  render()
+  if (state.useResumeFill) await sendMessageToTab({ action: "fillPage" })
+})
+
+// poll the resume log while the popup is open + v2 on
+setInterval(async () => {
+  if (!state.useResumeFill) return
+  const d = await chrome.storage.local.get(["esicResumeLog"])
+  const lines = d.esicResumeLog || []
+  if (lines.length !== (state.resumeLog || []).length || (lines[lines.length - 1] !== (state.resumeLog || [])[state.resumeLog.length - 1])) {
+    state.resumeLog = lines
+    renderResumeLog()
+  }
+}, 1500)
 
 // ─── ▶ Macro Recorder controls ─────────────────────────────────────
 $("record-btn").addEventListener("click", async () => {
@@ -671,6 +716,11 @@ chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
     }
     await saveState()
     render()
+    sendResponse({ ok: true })
+  } else if (msg.type === "preSubmitReport" || msg.type === "resumeDone") {
+    const d = await chrome.storage.local.get(["esicResumeLog"])
+    state.resumeLog = d.esicResumeLog || []
+    renderResumeLog()
     sendResponse({ ok: true })
   } else if (msg.type === "pageChanged") {
     state.currentPage = msg.page

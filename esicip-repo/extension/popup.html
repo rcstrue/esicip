@@ -182,6 +182,10 @@
       <div id="page-status">Detecting page…</div>
       <div id="status-msg" class="status-msg status-info" style="display:none;"></div>
     </div>
+    <div class="section" id="resume-log-section" style="display:none;">
+      <h2>v2 Fill Log</h2>
+      <div id="resume-log" class="results-list" style="font-family:monospace;font-size:11px;max-height:160px;overflow-y:auto;background:#f8fafc;padding:8px;border-radius:6px;"></div>
+    </div>
 
     <div class="section">
       <h2>Actions</h2>
@@ -189,6 +193,10 @@
       <label class="toggle-row" id="autoclick-row" title="When ON, the extension auto-clicks Submit / Continue / Save (and the dashboard OK/I Agree/Close popups) one after another, so the whole IP registration runs as a live, unattended flow. Bank-document file selection is still manual.">
         <input type="checkbox" id="autoclick-toggle" checked />
         <span>🤖 Auto-click all buttons (live form)</span>
+      </label>
+      <label class="toggle-row" id="resume-row" style="margin-top:6px;" title="Experimental v2 main-form fill. Persists a step cursor before each PostBack + resumes after reload, so the fill survives the live page's PostBack reloads (gender/dispensary/etc.) and fills ddllanguage in the same pass — the root-cause fix for the 'halts after first postback' bug. Falls back to v1 if off.">
+        <input type="checkbox" id="resume-toggle" />
+        <span>🧪 v2 resume fill (main form)</span>
       </label>
       <div class="btn-row" style="margin-top:6px;">
         <button class="btn btn-secondary" id="prev-btn">← Prev IP</button>
