@@ -69,6 +69,7 @@ function render() {
   if (state.queue.length === 0) {
     $("no-queue").style.display = "block"
     $("main-view").style.display = "none"
+    renderValidation() // show per-row errors even when 0 ready (queue empty)
     return
   }
 
