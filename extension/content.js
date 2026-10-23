@@ -272,7 +272,7 @@ async function handleDashboard() {
   ]
 
   let guard = 0
-  while (guard++ < 30) {
+  while (guard++ < 10) {
     let clicked = false
     for (const btn of popupSequence) {
       const el = findField([btn.sel])
@@ -281,7 +281,7 @@ async function handleDashboard() {
         el.click()
         dismissed.push(btn.name)
         clicked = true
-        await sleep(400) // let the PostBack + next popup render
+        await sleep(200) // let the PostBack + next popup render
         break
       }
     }
@@ -457,6 +457,9 @@ async function fillEntry(data) {
 
   // 3. Click Validate button (if present — validates the mobile number)
   const validateBtn = findField([
+    "#ctl00_HomePageContent_lnkmobilecheck",
+    "a[id*='mobilecheck' i]",
+    "a[onclick*='mobilecheck' i]",
     "#ctl00_HomePageContent_btnValidate",
     "input[value='Validate']",
     "input[onclick*='Validate' i]",
@@ -469,6 +472,7 @@ async function fillEntry(data) {
 
   // 4. Click Continue (broad selectors — live id may differ)
   const continueBtn = findField([
+    "#ctl00_HomePageContent_btnmobile",
     "#ctl00_HomePageContent_btnContinue",
     "#ctl00_HomePageContent_btnSubmit",
     "#ctl00_HomePageContent_btnProceed",
@@ -563,6 +567,7 @@ async function fillAadhaar(data) {
 
 // ─── PAGE 3: MAIN FORM (async — waits for AJAX dropdowns) ─────────
 async function fillMain(data) {
+  await loadLearnedFields() // right-click "Remember this field" overrides
   const filled = []
   const errors = []
 
@@ -574,7 +579,7 @@ async function fillMain(data) {
 
   // 1. Name (skip if already pre-filled from Aadhaar session)
   if (!getFieldValue(["#ctl00_HomePageContent_ctrlTextEmpName"]) && data.EmpName) {
-    setValue("#ctl00_HomePageContent_ctrlTextEmpName", data.EmpName)
+    setValue(lfSel("EmpName", "#ctl00_HomePageContent_ctrlTextEmpName"), data.EmpName)
     filled.push("Name")
   }
 
@@ -593,14 +598,14 @@ async function fillMain(data) {
 
   // 3. Father/Husband name (skip if pre-filled)
   if (!getFieldValue(["#ctl00_HomePageContent_ctrlTextFatherHusName"]) && data.FatherOrHusbandName) {
-    setValue("#ctl00_HomePageContent_ctrlTextFatherHusName", data.FatherOrHusbandName)
+    setValue(lfSel("FatherOrHusbandName", "#ctl00_HomePageContent_ctrlTextFatherHusName"), data.FatherOrHusbandName)
     filled.push("Father/Husband name")
   }
 
   // 4. DOB (skip if pre-filled)
   const dobEl = document.querySelector("#ctl00_HomePageContent_ctrlTxtIpDate")
   if (dobEl && !dobEl.value && data.DOB) {
-    setValue("#ctl00_HomePageContent_ctrlTxtIpDate", data.DOB)
+    setValue(lfSel("DOB", "#ctl00_HomePageContent_ctrlTxtIpDate"), data.DOB)
     filled.push("DOB")
   }
 
@@ -623,7 +628,7 @@ async function fillMain(data) {
 
   // ─── 10. Present Address (skip if pre-filled) ───────────────────
   if (!getFieldValue(["#ctl00_HomePageContent_ctrlTextPresentAddress1"]) && data.PresentAddress) {
-    setValue("#ctl00_HomePageContent_ctrlTextPresentAddress1", data.PresentAddress)
+    setValue(lfSel("PresentAddress", "#ctl00_HomePageContent_ctrlTextPresentAddress1"), data.PresentAddress)
     filled.push("Present Address")
   }
   if (data.PresentAddress2 && !getFieldValue(["#ctl00_HomePageContent_ctrlTextPresentAddress2"])) {
@@ -635,7 +640,7 @@ async function fillMain(data) {
 
   // Pin code (skip if pre-filled)
   if (!getFieldValue(["#ctl00_HomePageContent_ctrlTxtPresentPinCode"]) && data.PinCode) {
-    setValue("#ctl00_HomePageContent_ctrlTxtPresentPinCode", data.PinCode)
+    setValue(lfSel("PinCode", "#ctl00_HomePageContent_ctrlTxtPresentPinCode"), data.PinCode)
     filled.push("PIN")
   }
 
@@ -693,7 +698,7 @@ async function fillMain(data) {
       filled.push("Copy→Permanent")
     }
   } else if (data.PermanentAddress && !getFieldValue(["#ctl00_HomePageContent_ctrlTextPermanentAddress1"])) {
-    setValue("#ctl00_HomePageContent_ctrlTextPermanentAddress1", data.PermanentAddress)
+    setValue(lfSel("PermanentAddress", "#ctl00_HomePageContent_ctrlTextPermanentAddress1"), data.PermanentAddress)
   }
 
   // ─── 12a. Dispensary/IMP/mEUD For IP ────────────────────────────
@@ -801,7 +806,7 @@ async function fillMain(data) {
   // 18. Appointment date (readonly — set via JS)
   const doaEl = document.querySelector("#ctl00_HomePageContent_ctrlDIDateOfAppointmentDy")
   if (doaEl && !doaEl.value && data.AppointmentDate) {
-    setValue("#ctl00_HomePageContent_ctrlDIDateOfAppointmentDy", data.AppointmentDate)
+    setValue(lfSel("AppointmentDate", "#ctl00_HomePageContent_ctrlDIDateOfAppointmentDy"), data.AppointmentDate)
     filled.push("Appointment date")
   }
 
@@ -1223,6 +1228,9 @@ async function maybeAutoClickSubmit(page, fillResult) {
   // Entry page: if a Validate button is visible, click it first.
   if (page === "entry") {
     const validateSelectors = [
+      "#ctl00_HomePageContent_lnkmobilecheck",
+      "a[id*='mobilecheck' i]",
+      "a[onclick*='mobilecheck' i]",
       "#ctl00_HomePageContent_btnValidate",
       "input[type='submit'][value='Validate']",
       "input[type='button'][value='Validate']",
@@ -1619,3 +1627,78 @@ setTimeout(autoFill, 1500);
   document.body.appendChild(btn)
   console.log("[ESIC Auto-Fill] floating button injected")
 })()
+
+// ─── Right-click "Remember this field" (teach-field) ──────────────────
+// Track the last right-clicked element so the context-menu handler can read it.
+let __esicLastRightClicked = null
+document.addEventListener("contextmenu", (e) => { __esicLastRightClicked = e.target }, true)
+
+function stableSel(el) {
+  if (!el) return null
+  if (el.id) return "#" + CSS.escape(el.id)
+  if (el.name) return `[name="${CSS.escape(el.name)}"]`
+  const path = []
+  let n = el
+  while (n && n.nodeType === 1 && n !== document.body && n.parentElement) {
+    const tag = n.tagName.toLowerCase()
+    const sibs = Array.from(n.parentElement.children).filter((c) => c.tagName === n.tagName)
+    path.unshift(sibs.length > 1 ? `${tag}:nth-of-type(${sibs.indexOf(n) + 1})` : tag)
+    n = n.parentElement
+  }
+  return path.length ? "body > " + path.join(" > ") : null
+}
+
+// Learned fields: { csvColumn: selector } — overrides the hardcoded selectors.
+let ESIC_LF = {} // learnedFields cache, loaded at fill start
+async function loadLearnedFields() {
+  const d = await chrome.storage.local.get(["learnedFields"])
+  ESIC_LF = d.learnedFields || {}
+}
+function lfSel(column, fallbackSelector) {
+  return (ESIC_LF && ESIC_LF[column]) || fallbackSelector
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.action === "teachField") {
+    showTeachFieldPanel()
+    sendResponse({ ok: true })
+    return false
+  }
+})
+
+function showTeachFieldPanel() {
+  const el = __esicLastRightClicked
+  const sel = stableSel(el)
+  if (document.getElementById("esic-teach-panel")) document.getElementById("esic-teach-panel").remove()
+  const p = document.createElement("div")
+  p.id = "esic-teach-panel"
+  p.style.cssText = "position:fixed;top:60px;right:14px;z-index:2147483647;background:#fff;border:2px solid #dc2626;border-radius:10px;padding:14px;width:300px;font:13px sans-serif;color:#1a1a1a;box-shadow:0 8px 24px rgba(0,0,0,.3)"
+  p.innerHTML = `
+    <div style="font-weight:700;color:#dc2626;margin-bottom:8px">🧪 ESIC — Remember this field</div>
+    <label style="font-size:11px;color:#666">CSS selector (auto-detected):</label>
+    <input id="esic-teach-sel" style="width:100%;font-family:monospace;font-size:11px;padding:4px;margin:4px 0 8px;border:1px solid #ccc;border-radius:4px" value="${(sel || "").replace(/"/g, "&quot;")}">
+    <label style="font-size:11px;color:#666">CSV column name (e.g. EmpName, PresentAddress, DOB):</label>
+    <input id="esic-teach-col" style="width:100%;padding:4px;margin:4px 0 8px;border:1px solid #ccc;border-radius:4px" placeholder="Column name">
+    <div style="display:flex;gap:6px">
+      <button id="esic-teach-save" style="flex:1;background:#dc2626;color:#fff;border:none;padding:7px;border-radius:5px;cursor:pointer;font-weight:600">Save</button>
+      <button id="esic-teach-cancel" style="flex:1;background:#e5e7eb;border:none;padding:7px;border-radius:5px;cursor:pointer">Cancel</button>
+    </div>
+    <div id="esic-teach-status" style="font-size:11px;margin-top:6px;color:#065f46"></div>`
+  document.body.appendChild(p)
+  const close = () => p.remove()
+  document.getElementById("esic-teach-cancel").onclick = close
+  document.getElementById("esic-teach-save").onclick = async () => {
+    const s = document.getElementById("esic-teach-sel").value.trim()
+    const c = document.getElementById("esic-teach-col").value.trim()
+    const st = document.getElementById("esic-teach-status")
+    if (!s || !c) { st.style.color = "#991b1b"; st.textContent = "Enter both selector + column name"; return }
+    const d = await chrome.storage.local.get(["learnedFields"])
+    const lf = d.learnedFields || {}
+    lf[c] = s
+    await chrome.storage.local.set({ learnedFields: lf })
+    ESIC_LF = lf
+    st.style.color = "#065f46"
+    st.textContent = "✓ Saved. The fill will use '" + s + "' for " + c + " next time."
+    setTimeout(close, 1500)
+  }
+}

@@ -131,3 +131,20 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
     })
   }
 })
+
+// ─── Right-click "Remember this field" context menu ─────────────────
+// Lets the user teach the extension a field's selector on any ESIC page
+// (right-click a field → "🧪 ESIC: Remember this field" → name the CSV
+// column → the fill uses that selector next time). Self-serve field mapping.
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: "esic-teach-field",
+    title: "🧪 ESIC: Remember this field",
+    contexts: ["editable", "page", "link", "image"],
+  })
+})
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === "esic-teach-field" && tab && tab.id != null) {
+    chrome.tabs.sendMessage(tab.id, { action: "teachField" }).catch(() => {})
+  }
+})

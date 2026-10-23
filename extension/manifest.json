@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ESIC IP Auto-Fill",
-  "version": "1.5.4",
+  "version": "1.6.0",
   "description": "Auto-fills ESIC IP forms, auto-clicks Submit/Continue/Save, macro recording, loads .xlsx directly, auto-updates from GitHub.",
   "permissions": [
     "storage",
@@ -10,7 +10,8 @@
     "tabs",
     "alarms",
     "downloads",
-    "notifications"
+    "notifications",
+    "contextMenus"
   ],
   "host_permissions": [
     "https://portal.esic.gov.in/*",
