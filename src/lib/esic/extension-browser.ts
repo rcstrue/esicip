@@ -27,7 +27,6 @@ export function parseWorkbook(buf: ArrayBuffer): {
   const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
     defval: "",
     raw: true,
-    cellDates: true,
   })
   if (raw.length === 0) return { headers: [], rows: [] }
   const headers = Object.keys(raw[0])

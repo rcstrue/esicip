@@ -41858,8 +41858,7 @@ function parseWorkbook(buf) {
     return { headers: [], rows: [] };
   const raw = utils.sheet_to_json(ws, {
     defval: "",
-    raw: true,
-    cellDates: true
+    raw: true
   });
   if (raw.length === 0)
     return { headers: [], rows: [] };
