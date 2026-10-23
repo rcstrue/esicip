@@ -17,18 +17,34 @@ export function parseWorkbook(buf: ArrayBuffer): {
   headers: string[]
   rows: Record<string, string>[]
 } {
-  const wb = XLSX.read(buf, { type: "array" })
+  const wb = XLSX.read(buf, { type: "array", cellDates: true })
   const ws = wb.Sheets[wb.SheetNames[0]]
   if (!ws) return { headers: [], rows: [] }
+  // raw:true + cellDates:true → Date objects for date cells, numbers for numeric
+  // cells, strings for text. We format dates as dd/MM/yyyy + numbers as plain
+  // digit strings (so Aadhaar/BankAccNo/mobile stored as Excel numbers pass
+  // validation). raw:false used the cell's display format which is unreliable.
   const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
     defval: "",
-    raw: false,
+    raw: true,
+    cellDates: true,
   })
   if (raw.length === 0) return { headers: [], rows: [] }
   const headers = Object.keys(raw[0])
+  const pad2 = (n: number) => String(n).padStart(2, "0")
   const rows = raw.map((r) => {
     const o: Record<string, string> = {}
-    for (const k of headers) o[k] = String(r[k] ?? "").trim()
+    for (const k of headers) {
+      const v = r[k]
+      if (v instanceof Date) {
+        // dd/MM/yyyy (the portal's strict format)
+        o[k] = pad2(v.getDate()) + "/" + pad2(v.getMonth() + 1) + "/" + v.getFullYear()
+      } else if (typeof v === "number") {
+        o[k] = String(v)
+      } else {
+        o[k] = String(v ?? "").trim()
+      }
+    }
     return o
   })
   return { headers, rows }

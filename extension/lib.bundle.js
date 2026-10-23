@@ -41519,32 +41519,43 @@ function validateRow(rowIndex, raw) {
     issues.push({ column: "PresentDistrict", severity: "error", message: "PresentDistrict is required" });
   }
   normalized.PresentDistrict = get("PresentDistrict");
-  normalized.CopyPresentToPermanent = "No";
-  const permanentAddress = get("PermanentAddress");
-  if (!permanentAddress) {
-    issues.push({ column: "PermanentAddress", severity: "error", message: "PermanentAddress is required (the Copy checkbox is not used)" });
+  const copyFlag = (get("CopyPresentToPermanent") || "").toLowerCase();
+  if (copyFlag === "yes" || copyFlag === "true" || copyFlag === "1") {
+    normalized.CopyPresentToPermanent = "Yes";
+    normalized.PermanentAddress = get("PresentAddress");
+    normalized.PermanentAddress2 = get("PresentAddress2");
+    normalized.PermanentAddress3 = get("PresentAddress3");
+    normalized.PermanentPinCode = get("PinCode");
+    normalized.PermanentState = toPortalStateSpelling(get("PresentState"));
+    normalized.PermanentDistrict = get("PresentDistrict");
+    normalized.PermanentDistrictCode = get("PresentDistrictCode");
+  } else {
+    normalized.CopyPresentToPermanent = "No";
+    const permanentAddress = get("PermanentAddress");
+    if (!permanentAddress) {
+      issues.push({ column: "PermanentAddress", severity: "error", message: "PermanentAddress is required (or set CopyPresentToPermanent=Yes)" });
+    }
+    normalized.PermanentAddress = permanentAddress;
+    normalized.PermanentAddress2 = get("PermanentAddress2");
+    normalized.PermanentAddress3 = get("PermanentAddress3");
+    const permPin = get("PermanentPinCode");
+    if (!permPin) {
+      issues.push({ column: "PermanentPinCode", severity: "error", message: "PermanentPinCode is required (or set CopyPresentToPermanent=Yes)" });
+    } else if (!PIN_REGEX.test(permPin)) {
+      issues.push({ column: "PermanentPinCode", severity: "error", message: "PermanentPinCode must be 6 digits" });
+    }
+    normalized.PermanentPinCode = permPin;
+    const permanentStateRaw = get("PermanentState");
+    if (!STATE_NAME_TO_CODE[permanentStateRaw.toLowerCase()]) {
+      issues.push({ column: "PermanentState", severity: "error", message: `PermanentState '${permanentStateRaw}' not recognized. Use state names like Gujarat, Maharashtra, etc.` });
+    }
+    normalized.PermanentState = toPortalStateSpelling(permanentStateRaw);
+    if (!get("PermanentDistrict")) {
+      issues.push({ column: "PermanentDistrict", severity: "error", message: "PermanentDistrict is required (or set CopyPresentToPermanent=Yes)" });
+    }
+    normalized.PermanentDistrict = get("PermanentDistrict");
+    normalized.PermanentDistrictCode = get("PermanentDistrictCode");
   }
-  normalized.PermanentAddress = permanentAddress;
-  normalized.PermanentAddress2 = get("PermanentAddress2");
-  normalized.PermanentAddress3 = get("PermanentAddress3");
-  const permPin = get("PermanentPinCode");
-  if (!permPin) {
-    issues.push({ column: "PermanentPinCode", severity: "error", message: "PermanentPinCode is required" });
-  } else if (!PIN_REGEX.test(permPin)) {
-    issues.push({ column: "PermanentPinCode", severity: "error", message: "PermanentPinCode must be 6 digits" });
-  }
-  normalized.PermanentPinCode = permPin;
-  const permanentStateRaw = get("PermanentState");
-  const permanentStateCode = STATE_NAME_TO_CODE[permanentStateRaw.toLowerCase()];
-  if (!permanentStateCode) {
-    issues.push({ column: "PermanentState", severity: "error", message: `PermanentState '${permanentStateRaw}' not recognized. Use state names like Gujarat, Maharashtra, etc.` });
-  }
-  normalized.PermanentState = toPortalStateSpelling(permanentStateRaw);
-  if (!get("PermanentDistrict")) {
-    issues.push({ column: "PermanentDistrict", severity: "error", message: "PermanentDistrict is required" });
-  }
-  normalized.PermanentDistrict = get("PermanentDistrict");
-  normalized.PermanentDistrictCode = get("PermanentDistrictCode");
   const dispensaryType = get("DispensaryType") || "Dispensary";
   if (!["Dispensary", "IMP", "EMud"].includes(dispensaryType)) {
     issues.push({
@@ -41578,21 +41589,21 @@ function validateRow(rowIndex, raw) {
   normalized.DispensaryId = get("DispensaryId");
   const depDispType = get("DependendantDispensaryType") || "Dispensary";
   if (!["Dispensary", "IMP", "EMud"].includes(depDispType)) {
-    issues.push({ column: "DependendantDispensaryType", severity: "error", message: `DependendantDispensaryType must be 'Dispensary', 'IMP', or 'EMud' (got '${depDispType}')` });
+    issues.push({ column: "DependendantDispensaryType", severity: "warning", message: `DependendantDispensaryType must be 'Dispensary', 'IMP', or 'EMud' (got '${depDispType}')` });
   }
   normalized.DependendantDispensaryType = depDispType;
   const depDispStateRaw = get("DependendantDispensaryState");
   const depDispStateCode = STATE_NAME_TO_CODE[depDispStateRaw.toLowerCase()];
   if (!depDispStateCode) {
-    issues.push({ column: "DependendantDispensaryState", severity: "error", message: `DependendantDispensaryState '${depDispStateRaw}' not recognized` });
+    issues.push({ column: "DependendantDispensaryState", severity: "warning", message: `DependendantDispensaryState '${depDispStateRaw}' not recognized` });
   }
   normalized.DependendantDispensaryState = depDispStateCode ?? depDispStateRaw;
   if (!get("DependendantDispensaryDistrict")) {
-    issues.push({ column: "DependendantDispensaryDistrict", severity: "error", message: "DependendantDispensaryDistrict is required" });
+    issues.push({ column: "DependendantDispensaryDistrict", severity: "warning", message: "DependendantDispensaryDistrict is required" });
   }
   normalized.DependendantDispensaryDistrict = get("DependendantDispensaryDistrict");
   if (!get("DependendantDispensaryName")) {
-    issues.push({ column: "DependendantDispensaryName", severity: "error", message: "DependendantDispensaryName is required" });
+    issues.push({ column: "DependendantDispensaryName", severity: "warning", message: "DependendantDispensaryName is required" });
   }
   normalized.DependendantDispensaryName = get("DependendantDispensaryName");
   if (!get("DependendantDispensaryId")) {
@@ -41841,21 +41852,31 @@ async function buildTemplateXlsx() {
 // src/lib/esic/extension-browser.ts
 var import_jszip2 = __toESM(require_lib(), 1);
 function parseWorkbook(buf) {
-  const wb = readSync(buf, { type: "array" });
+  const wb = readSync(buf, { type: "array", cellDates: true });
   const ws = wb.Sheets[wb.SheetNames[0]];
   if (!ws)
     return { headers: [], rows: [] };
   const raw = utils.sheet_to_json(ws, {
     defval: "",
-    raw: false
+    raw: true,
+    cellDates: true
   });
   if (raw.length === 0)
     return { headers: [], rows: [] };
   const headers = Object.keys(raw[0]);
+  const pad2 = (n) => String(n).padStart(2, "0");
   const rows = raw.map((r) => {
     const o = {};
-    for (const k of headers)
-      o[k] = String(r[k] ?? "").trim();
+    for (const k of headers) {
+      const v = r[k];
+      if (v instanceof Date) {
+        o[k] = pad2(v.getDate()) + "/" + pad2(v.getMonth() + 1) + "/" + v.getFullYear();
+      } else if (typeof v === "number") {
+        o[k] = String(v);
+      } else {
+        o[k] = String(v ?? "").trim();
+      }
+    }
     return o;
   });
   return { headers, rows };

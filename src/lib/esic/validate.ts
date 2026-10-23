@@ -310,39 +310,38 @@ export function validateRow(rowIndex: number, raw: Record<string, string>): Norm
   }
   normalized.PresentDistrict = get("PresentDistrict")
 
-  // CopyPresentToPermanent — DO NOT USE the checkbox (see field-map note).
-  // The extension fills permanent fields explicitly. Permanent address is MANDATORY.
-  normalized.CopyPresentToPermanent = "No"
-
-  const permanentAddress = get("PermanentAddress")
-  if (!permanentAddress) {
-    issues.push({ column: "PermanentAddress", severity: "error", message: "PermanentAddress is required (the Copy checkbox is not used)" })
+  // CopyPresentToPermanent — if the user set it to Yes, copy present→permanent
+  // (the extension fills permanent explicitly from these copied values, NOT via
+  // the live checkbox which overwrites the permanent mobile). Supports the common
+  // "same address" workflow without requiring explicit Permanent* columns.
+  const copyFlag = (get("CopyPresentToPermanent") || "").toLowerCase()
+  if (copyFlag === "yes" || copyFlag === "true" || copyFlag === "1") {
+    normalized.CopyPresentToPermanent = "Yes"
+    normalized.PermanentAddress = get("PresentAddress")
+    normalized.PermanentAddress2 = get("PresentAddress2")
+    normalized.PermanentAddress3 = get("PresentAddress3")
+    normalized.PermanentPinCode = get("PinCode")
+    normalized.PermanentState = toPortalStateSpelling(get("PresentState"))
+    normalized.PermanentDistrict = get("PresentDistrict")
+    normalized.PermanentDistrictCode = get("PresentDistrictCode")
+  } else {
+    normalized.CopyPresentToPermanent = "No"
+    const permanentAddress = get("PermanentAddress")
+    if (!permanentAddress) { issues.push({ column: "PermanentAddress", severity: "error", message: "PermanentAddress is required (or set CopyPresentToPermanent=Yes)" }) }
+    normalized.PermanentAddress = permanentAddress
+    normalized.PermanentAddress2 = get("PermanentAddress2")
+    normalized.PermanentAddress3 = get("PermanentAddress3")
+    const permPin = get("PermanentPinCode")
+    if (!permPin) { issues.push({ column: "PermanentPinCode", severity: "error", message: "PermanentPinCode is required (or set CopyPresentToPermanent=Yes)" }) }
+    else if (!PIN_REGEX.test(permPin)) { issues.push({ column: "PermanentPinCode", severity: "error", message: "PermanentPinCode must be 6 digits" }) }
+    normalized.PermanentPinCode = permPin
+    const permanentStateRaw = get("PermanentState")
+    if (!STATE_NAME_TO_CODE[permanentStateRaw.toLowerCase()]) { issues.push({ column: "PermanentState", severity: "error", message: `PermanentState '${permanentStateRaw}' not recognized. Use state names like Gujarat, Maharashtra, etc.` }) }
+    normalized.PermanentState = toPortalStateSpelling(permanentStateRaw)
+    if (!get("PermanentDistrict")) { issues.push({ column: "PermanentDistrict", severity: "error", message: "PermanentDistrict is required (or set CopyPresentToPermanent=Yes)" }) }
+    normalized.PermanentDistrict = get("PermanentDistrict")
+    normalized.PermanentDistrictCode = get("PermanentDistrictCode")
   }
-  normalized.PermanentAddress = permanentAddress
-  normalized.PermanentAddress2 = get("PermanentAddress2")
-  normalized.PermanentAddress3 = get("PermanentAddress3")
-
-  const permPin = get("PermanentPinCode")
-  if (!permPin) {
-    issues.push({ column: "PermanentPinCode", severity: "error", message: "PermanentPinCode is required" })
-  } else if (!PIN_REGEX.test(permPin)) {
-    issues.push({ column: "PermanentPinCode", severity: "error", message: "PermanentPinCode must be 6 digits" })
-  }
-  normalized.PermanentPinCode = permPin
-
-  // Permanent State — same NAME-based select as Present; use portal spelling.
-  const permanentStateRaw = get("PermanentState")
-  const permanentStateCode = STATE_NAME_TO_CODE[permanentStateRaw.toLowerCase()]
-  if (!permanentStateCode) {
-    issues.push({ column: "PermanentState", severity: "error", message: `PermanentState '${permanentStateRaw}' not recognized. Use state names like Gujarat, Maharashtra, etc.` })
-  }
-  normalized.PermanentState = toPortalStateSpelling(permanentStateRaw)
-
-  if (!get("PermanentDistrict")) {
-    issues.push({ column: "PermanentDistrict", severity: "error", message: "PermanentDistrict is required" })
-  }
-  normalized.PermanentDistrict = get("PermanentDistrict")
-  normalized.PermanentDistrictCode = get("PermanentDistrictCode")
 
   // ─── Dispensary block ──────────────────────────────────────────────────
   const dispensaryType = get("DispensaryType") || "Dispensary"
@@ -384,24 +383,24 @@ export function validateRow(rowIndex: number, raw: Record<string, string>): Norm
   // ─── Dependendant dispensary block (MANDATORY) ──────────────────────
   const depDispType = get("DependendantDispensaryType") || "Dispensary"
   if (!["Dispensary", "IMP", "EMud"].includes(depDispType)) {
-    issues.push({ column: "DependendantDispensaryType", severity: "error", message: `DependendantDispensaryType must be 'Dispensary', 'IMP', or 'EMud' (got '${depDispType}')` })
+    issues.push({ column: "DependendantDispensaryType", severity: "warning", message: `DependendantDispensaryType must be 'Dispensary', 'IMP', or 'EMud' (got '${depDispType}')` })
   }
   normalized.DependendantDispensaryType = depDispType
 
   const depDispStateRaw = get("DependendantDispensaryState")
   const depDispStateCode = STATE_NAME_TO_CODE[depDispStateRaw.toLowerCase()]
   if (!depDispStateCode) {
-    issues.push({ column: "DependendantDispensaryState", severity: "error", message: `DependendantDispensaryState '${depDispStateRaw}' not recognized` })
+    issues.push({ column: "DependendantDispensaryState", severity: "warning", message: `DependendantDispensaryState '${depDispStateRaw}' not recognized` })
   }
   normalized.DependendantDispensaryState = depDispStateCode ?? depDispStateRaw
 
   if (!get("DependendantDispensaryDistrict")) {
-    issues.push({ column: "DependendantDispensaryDistrict", severity: "error", message: "DependendantDispensaryDistrict is required" })
+    issues.push({ column: "DependendantDispensaryDistrict", severity: "warning", message: "DependendantDispensaryDistrict is required" })
   }
   normalized.DependendantDispensaryDistrict = get("DependendantDispensaryDistrict")
 
   if (!get("DependendantDispensaryName")) {
-    issues.push({ column: "DependendantDispensaryName", severity: "error", message: "DependendantDispensaryName is required" })
+    issues.push({ column: "DependendantDispensaryName", severity: "warning", message: "DependendantDispensaryName is required" })
   }
   normalized.DependendantDispensaryName = get("DependendantDispensaryName")
 
