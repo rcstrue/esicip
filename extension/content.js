@@ -604,7 +604,10 @@ async function fillMain(data) {
   const husbandChecked = isRadioChecked(["#ctl00_HomePageContent_ctrlFatherOrHus_1"])
   if (wantHusband && !husbandChecked) {
     checkRadio(["#ctl00_HomePageContent_ctrlFatherOrHus_1"])
-    return { type: "info", message: "✓ Selected 'Husband'. Page reloading (PostBack)..." }
+    filled.push("Husband")
+    // don't return — continue filling text/geo/language in this pass; if the
+    // PostBack is a full reload it interrupts + resumes on the next load, if
+    // async (no reload) the fill continues.
   }
   if (!wantHusband && !fatherChecked) {
     checkRadio(["#ctl00_HomePageContent_ctrlFatherOrHus_0"])
@@ -638,7 +641,8 @@ async function fillMain(data) {
   const gEl = document.querySelector(gSel)
   if (gEl && !gEl.checked && !gEl.disabled) {
     checkRadio([gSel])
-    return { type: "info", message: `✓ Selected Gender ${data.Gender}. Page reloading (PostBack)...` }
+    filled.push("Gender=" + data.Gender)
+    // don't return — continue filling (see note above)
   }
 
   // ─── 10. Present Address (skip if pre-filled) ───────────────────
@@ -1298,24 +1302,10 @@ async function fillPage() {
     case "aadhaar":
       fillResult = await fillAadhaar(ipData)
       break
-    case "main": {
-      // v2 opt-in: resume-driven fill across PostBack reloads (the spec fix).
-      const st = await chrome.storage.local.get(["useResumeFill"])
-      if (st.useResumeFill && window.ESICBuildMainFormPlan && window.registerResumePlan) {
-        const plan = window.ESICBuildMainFormPlan(ipData)
-        window.registerResumePlan("main-form", plan)
-        const c = await chrome.storage.local.get(["esicResumeCursor"])
-        if (!c.esicResumeCursor) {
-          console.log("[ESIC Auto-Fill] v2 resume fill: starting plan")
-          window.ESICRunPlan("main-form")
-        } else {
-          console.log("[ESIC Auto-Fill] v2 resume fill: cursor active — resume runner continues")
-        }
-        fillResult = { type: "info", message: "🤖 v2 resume fill active — stepping through the form. Watch the popup log / Selection report." }
-        break
-      }
+    case "main":
+      // v1 fillMain (continues past postback radios — fills text/geo/language
+      // in the same pass). v2 resume is disabled on live (halts at PostBack).
       fillResult = await fillMain(ipData)
-    }
       break
     case "bank":
       fillResult = fillBank(ipData)
