@@ -192,6 +192,21 @@ function getFieldValue(selectors) {
   return el ? el.value : ""
 }
 
+// ─── Re-enable right-click (ESIC blocks it via oncontextmenu) ────────
+// So the "Remember this field" context menu can fire. Override the page's
+// blocker + stop its capture-phase handlers from cancelling the menu.
+try {
+  document.oncontextmenu = null
+  document.body && (document.body.oncontextmenu = null)
+} catch {}
+window.addEventListener("contextmenu", (e) => { e.stopPropagation() }, true)
+// also clear any inline oncontextmenu attributes after DOM is ready
+const clearCtx = () => {
+  document.querySelectorAll("[oncontextmenu]").forEach((el) => { try { el.oncontextmenu = null } catch {} })
+}
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", clearCtx)
+else clearCtx()
+
 // ─── Page detection ────────────────────────────────────────────────
 function detectPage() {
   // Entry page: "Was the Employee ever allotted a ESI Number?" with Yes/No
@@ -1577,8 +1592,8 @@ async function autoFill() {
   }
 }
 
-// Initial fill after 5 seconds (give AJAX time to start loading)
-setTimeout(autoFill, 1500);
+// Initial fill (give AJAX a moment, but fast so the user doesn't click manually)
+setTimeout(autoFill, 600);
 
 // ─── Live-form mode: flag <html> so the dialog patch auto-accepts confirms ─
 (async () => {
