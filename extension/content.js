@@ -685,7 +685,9 @@ async function fillMain(data) {
       // match by label (works whether the option value is the name or a code).
       const ok = setSelectByLabel(stateSelectors, data.PresentState)
       if (!ok) errors.push(`Present State '${data.PresentState}' not found in dropdown`)
-      return { type: "info", message: "✓ Selected Present State. Waiting for districts to load (PostBack)..." }
+      else filled.push("Present State")
+      // selectPresentStates() runs client-side on change (no PostBack) — districts
+      // populate synchronously; continue to district in this same pass.
     } else {
       errors.push("Present State dropdown didn't load options — click it manually to trigger load, then click 'Fill this page now'")
     }
@@ -709,15 +711,47 @@ async function fillMain(data) {
     }
   }
 
-  // 11. Permanent Address — copy from present
-  if (data.CopyPresentToPermanent === "Yes") {
-    const chk = document.querySelector("#ctl00_HomePageContent_chkboxCopyPresentAddress")
-    if (chk && !chk.checked) {
-      checkCheckbox(["#ctl00_HomePageContent_chkboxCopyPresentAddress"])
-      filled.push("Copy→Permanent")
-    }
-  } else if (data.PermanentAddress && !getFieldValue(["#ctl00_HomePageContent_ctrlTextPermanentAddress1"])) {
+  // 11. Permanent Address — fill EXPLICITLY (do NOT tick the Copy checkbox; it
+  // overwrites the permanent mobile with the disabled present mobile + re-runs on
+  // every present-field change). The validator already copied present→permanent into
+  // data.Permanent* when CopyPresentToPermanent=Yes, so just fill them directly.
+  if (data.PermanentAddress && !getFieldValue(["#ctl00_HomePageContent_ctrlTextPermanentAddress1"])) {
     setValue(lfSel("PermanentAddress", "#ctl00_HomePageContent_ctrlTextPermanentAddress1"), data.PermanentAddress)
+    filled.push("Permanent Address")
+  }
+  if (data.PermanentAddress2 && !getFieldValue(["#ctl00_HomePageContent_ctrlTextPermanentAddress2"])) {
+    setValue("#ctl00_HomePageContent_ctrlTextPermanentAddress2", data.PermanentAddress2)
+  }
+  if (data.PermanentAddress3 && !getFieldValue(["#ctl00_HomePageContent_ctrlTextPermanentAddress3"])) {
+    setValue("#ctl00_HomePageContent_ctrlTextPermanentAddress3", data.PermanentAddress3)
+  }
+  if (data.PermanentPinCode && !getFieldValue(["#ctl00_HomePageContent_ctrlTextPermanentPinCode"])) {
+    setValue(lfSel("PermanentPinCode", "#ctl00_HomePageContent_ctrlTextPermanentPinCode"), data.PermanentPinCode)
+    filled.push("Permanent PIN")
+  }
+  // Permanent State → district (client-side selectPermanentStates, same pass)
+  const permStateSelectors = ["#ctl00_HomePageContent_ctrlTextPermanentState"]
+  const permStateEl = findField(permStateSelectors)
+  if (permStateEl && data.PermanentState && permStateEl.value !== data.PermanentState) {
+    const populated = await waitForOptions(permStateSelectors, 15000)
+    if (populated) {
+      const ok = setSelectByLabel(permStateSelectors, data.PermanentState)
+      if (!ok) errors.push(`Permanent State '${data.PermanentState}' not found`)
+      else filled.push("Permanent State")
+    }
+  }
+  const permDistSelectors = ["#ctl00_HomePageContent_ctrlTextPermanentDistrict"]
+  const permDistEl = findField(permDistSelectors)
+  if (permDistEl && data.PermanentDistrict) {
+    const curLabel = getSelectLabel(permDistSelectors)
+    if (curLabel !== data.PermanentDistrict) {
+      const populated = await waitForOptions(permDistSelectors, 15000)
+      if (populated) {
+        const ok = setSelectByLabel(permDistSelectors, data.PermanentDistrict)
+        if (ok) filled.push("Permanent District")
+        else errors.push(`Permanent District '${data.PermanentDistrict}' not found`)
+      }
+    }
   }
 
   // ─── 12a. Dispensary/IMP/mEUD For IP ────────────────────────────
@@ -728,9 +762,8 @@ async function fillMain(data) {
   const dEl = document.querySelector(dSel)
   if (dEl && !dEl.checked) {
     checkRadio([dSel])
-    if (data.DispensaryType !== "Dispensary") {
-      return { type: "info", message: `✓ Selected ${data.DispensaryType}. Page reloading (PostBack)...` }
-    }
+    if (data.DispensaryType !== "Dispensary") filled.push("DispType=" + data.DispensaryType)
+    // don't return — continue (next block waits for options)
   }
 
   // Dispensary State (WAIT for options)
@@ -740,7 +773,8 @@ async function fillMain(data) {
     const populated = await waitForOptions(dispStateSelectors, 15000)
     if (populated) {
       setSelect(dispStateSelectors, data.DispensaryState)
-      return { type: "info", message: "✓ Selected Dispensary State (12a). Waiting for districts..." }
+      filled.push("Disp State")
+      // don't return — the district block below waits for options
     } else {
       errors.push("Dispensary State dropdown didn't load options")
     }
@@ -755,7 +789,8 @@ async function fillMain(data) {
       const populated = await waitForOptions(dispDistSelectors, 15000)
       if (populated) {
         setSelectByLabel(dispDistSelectors, data.DispensaryDistrict)
-        return { type: "info", message: "✓ Selected Dispensary District (12a). Waiting for dispensaries..." }
+        filled.push("Disp District")
+        // don't return — the dispensary-name block below waits for options
       }
     }
   }
