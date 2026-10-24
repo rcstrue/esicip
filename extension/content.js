@@ -997,11 +997,16 @@ function fillNominee(data) {
     setValue("#ctl00_HomePageContent_ctrlTextAddress3", data.PresentAddress3)
   }
 
-  // 4. Nominee State + District (use employee's present state/district)
+  // 4. Nominee State — the <select> uses NUMERIC codes (29=Gujarat), so match
+  // by label/text. Comparing el.value (code) to PresentState (name) caused a
+  // PostBack reload loop. Skip if already the right state (by label).
   const nomStateEl = document.querySelector("#ctl00_HomePageContent_States")
-  if (nomStateEl && nomStateEl.value !== data.PresentState && data.PresentState) {
-    setSelect(["#ctl00_HomePageContent_States"], data.PresentState)
-    return { type: "info", message: "✓ Selected Nominee State. Loading districts (PostBack)..." }
+  if (nomStateEl && data.PresentState) {
+    const curStateLabel = getSelectLabel(["#ctl00_HomePageContent_States"])
+    if (curStateLabel !== data.PresentState) {
+      setSelectByLabel(["#ctl00_HomePageContent_States"], data.PresentState)
+      return { type: "info", message: "✓ Selected Nominee State (" + data.PresentState + "). Loading districts (PostBack)..." }
+    }
   }
   const nomDistEl = document.querySelector("#ctl00_HomePageContent_Districts")
   if (nomDistEl && nomDistEl.options.length > 1 && getSelectLabel(["#ctl00_HomePageContent_Districts"]) !== data.PresentDistrict) {
